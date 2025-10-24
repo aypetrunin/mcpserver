@@ -2,7 +2,7 @@ import os
 import asyncio
 import logging
 import random
-from typing import List, Dict, Callable, Awaitable
+from typing import List, Callable, Awaitable
 from dotenv import load_dotenv
 import httpx
 from fastembed.sparse.bm25 import Bm25
@@ -27,7 +27,7 @@ load_dotenv()
 # Конфигурация для OpenAI, Qdrant и Postgres
 OPENAI_PROXY = os.getenv("OPENAI_PROXY_URL")  # Прокси для OpenAI (если нужен)
 OPENAI_TIMEOUT = int(os.getenv("OPENAI_TIMEOUT", "60"))  # Таймаут запросов к OpenAI
-QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")  # URL Qdrant
+QDRANT_URL = os.getenv("QDRANT_URL", "172.17.0.1:6333")  # URL Qdrant
 QDRANT_TIMEOUT = int(os.getenv("QDRANT_TIMEOUT", "120"))  # Таймаут запросов к Qdrant
 
 # Конфигурация для подключения к PostgreSQL

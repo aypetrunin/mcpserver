@@ -198,4 +198,4 @@ if __name__ == "__main__":
 
 # cd /home/copilot_superuser/petrunin/zena/mcp
 # python -m src.qdrant.retriver_faq_services
-# uv run python -m src.qdrant.retriver_faq_services
+# uv run python -m src.qdrant.retriever_faq_services

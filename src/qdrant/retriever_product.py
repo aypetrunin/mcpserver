@@ -1,6 +1,7 @@
+import os
 import asyncio
-from typing import Optional, List, Dict, Any
 
+from typing import Optional, List, Dict, Any
 from qdrant_client import models
 
 from .retriever_common import (
@@ -12,8 +13,7 @@ from .retriever_common import (
 )
 
 # -------------------- Конфигурация --------------------
-COLLECTION_NAME = "zena2_products_services_view"
-
+COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_PRODUCTS", "zena2_products_services_view")
 
 # -------------------- Преобразование точек --------------------
 def points_to_list(points) -> List[Dict[str, Any]]:
@@ -84,7 +84,7 @@ def make_filter(
     if channel_id:
         must.append(models.FieldCondition(
             key="channel_id",
-            match=models.MatchValue(value=channel_id)
+            match=models.MatchValue(value=int(channel_id))
         ))
 
     # --- Фильтрация по показаниям ---
@@ -326,11 +326,11 @@ if __name__ == "__main__":
         Ищет массажные услуги по фильтрам и запросу.
         """
         results = await retriever_product_hybrid_async(
-            channel_id=2,
-            query="массаж",
-            indications=["отечность"],
-            contraindications=["высокое"],
-            body_parts=["тело"],
+            channel_id='1',
+            query="лпг массаж",
+            # indications=["отечность"],
+            # contraindications=["высокое"],
+            # body_parts=["тело"],
             # product_type=["разовый"]
         )
         logger.info(f"Результаты: {len(results)} элементов")
@@ -340,4 +340,4 @@ if __name__ == "__main__":
 
 
 # cd /home/copilot_superuser/petrunin/zena/mcpserver
-# uv run python -m src.qdrant.retriver_product
+# uv run python -m src.qdrant.retriever_product

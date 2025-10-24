@@ -12,3 +12,8 @@ services:
 
 # docker-compose down           # Остановить и удалить старый контейнер и сеть
 # docker-compose up --build -d  # С пересборкой и запуском в фоне
+
+# cd /home/copilot_superuser/petrunin/zena/mcpserver
+# docker-compose logs -f mcpsrv
+
+# apt update && apt install -y curl

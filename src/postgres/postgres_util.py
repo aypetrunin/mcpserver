@@ -1,4 +1,3 @@
-import os
 import psycopg2
 import json
 from dotenv import load_dotenv

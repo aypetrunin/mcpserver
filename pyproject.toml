@@ -30,6 +30,7 @@ dependencies = [
     "uvicorn>=0.35.0",
     "fastembed>=0.7.3",
     "psycopg2-binary>=2.9.11",
+    "asyncpg>=0.30.0",
 ]
 
 [dependency-groups]

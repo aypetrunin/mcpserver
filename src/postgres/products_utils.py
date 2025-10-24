@@ -7,7 +7,7 @@ from typing import Optional, Dict
 import asyncpg  # Асинхронный клиент для PostgreSQL
 import asyncio
 
-from zena_qdrant.qdrant.qdrant_common import (
+from ..qdrant.retriver_common import (
     POSTGRES_CONFIG,       # Конфигурация подключения к Postgres
     bm25_embedding_model,  # BM25 модель для sparse embedding
     ada_embeddings,        # Функция для генерации dense-эмбеддингов OpenAI

@@ -3,25 +3,26 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Обновление pip и установка uv (в соответствии с вашей ссылкой)
+# Обновление pip и установка uv
 RUN pip install --upgrade pip
 RUN pip install uv
 
+# Копируем файлы зависимостей и исходный код
 COPY pyproject.toml ./
 COPY src ./src
 
-# Установка зависимостей без кода для кеширования слоёв
-RUN pip install --no-deps .
+# Установка зависимости с кодом, чтобы успешно установить fastmcp и другие
+RUN pip install .
 
 # Вторая стадия: создание финального образа
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Копирование установленных библиотек из builder
+# Копирование установленных библиотек из builder (зависимости)
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
-# Копирование кода из builder
+# Копирование исходного кода из builder, чтобы были последние данные
 COPY --from=builder /app /app
 
 EXPOSE 4011
@@ -31,6 +32,7 @@ EXPOSE 4016
 EXPOSE 4017
 
 CMD ["python", "main.py"]
+
 
 
 # FROM python:3.11-slim

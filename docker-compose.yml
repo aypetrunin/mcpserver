@@ -21,3 +21,8 @@ services:
 # docker-compose logs -f mcpsrv
 
 # apt update && apt install -y curl
+
+# docker-compose up -d  # запуск без # пересборки
+# docker-compose restart  # перезапуск контейнера при изменениях
+
+# docker-compose up --build # если нужно полностью применить новые зависимости

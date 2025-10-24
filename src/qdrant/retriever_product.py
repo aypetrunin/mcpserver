@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 
 from qdrant_client import models
 
-from .retriver_common import (
+from .retriever_common import (
     qdrant_client,         # Асинхронный клиент Qdrant
     ada_embeddings,        # Функция генерации dense-векторов OpenAI (Ada)
     bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)

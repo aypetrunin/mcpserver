@@ -1,12 +1,12 @@
 import pytest
 
-from src.qdrant.retriver_faq_services import (
+from petrunin.zena.mcpserver.src.qdrant.retriever_faq_services import (
     retriver_hybrid_async,
     QDRANT_COLLECTION_SERVICES,
     QDRANT_COLLECTION_FAQ
 )
 
-from src.qdrant.retriver_product import (
+from petrunin.zena.mcpserver.src.qdrant.retriever_product import (
      retriever_product_hybrid_async
 )
 

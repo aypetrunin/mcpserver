@@ -3,7 +3,7 @@ import json
 from dotenv import load_dotenv
 from typing import Optional, Dict
 
-from ..qdrant.retriver_common import POSTGRES_CONFIG, logger
+from ..qdrant.retriever_common import POSTGRES_CONFIG, logger
 
 load_dotenv()
 

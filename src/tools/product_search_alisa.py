@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastmcp import FastMCP
+
 from ..qdrant.retriver_product import retriever_product_hybrid_async
 from ..qdrant.retriver_product import retriever_product_hybrid_mult_async
 from ..postgres.postgres_util import insert_dialog_state

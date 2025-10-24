@@ -5,6 +5,10 @@ services:
       - .env
     ports:
       - "4011:4011"
-      # и другие нужные порты, например, для MCP_PORT_SOFIA
+      - "4012:4012"
     volumes:
       - .:/app
+    restart: unless-stopped
+
+# docker-compose down           # Остановить и удалить старый контейнер и сеть
+# docker-compose up --build -d  # С пересборкой и запуском в фоне

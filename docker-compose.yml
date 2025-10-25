@@ -2,7 +2,7 @@ services:
   mcpsrv:
     container_name: zena_mcp
     build: .
-    image: zena_mcp:latest  # Имя образа
+    image: zena_mcp:latest
     env_file:
       - .env
     ports:

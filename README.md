@@ -31,3 +31,6 @@ uv add -r requirements.txt
 # 7. Добавление новых пакетов
 uv add requests
 uv add --dev pytest
+
+# 8. Посмотреть дерево пакетов
+uv tree

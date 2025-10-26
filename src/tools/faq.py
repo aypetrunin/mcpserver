@@ -1,4 +1,3 @@
-import asyncio
 from fastmcp import FastMCP
 
 from ..qdrant.retriever_faq_services import retriver_hybrid_async, QDRANT_COLLECTION_FAQ, QDRANT_COLLECTION_SERVICES

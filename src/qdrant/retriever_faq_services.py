@@ -1,9 +1,9 @@
 import os
 import asyncio
+
 from typing import Optional, List, Dict
 
 from qdrant_client import models
-
 from .retriever_common import (
     qdrant_client,         # Асинхронный клиент Qdrant
     ada_embeddings,        # Функция генерации dense-векторов OpenAI (Ada)

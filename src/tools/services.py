@@ -1,5 +1,4 @@
 from fastmcp import FastMCP
-from typing import Optional
 
 from ..qdrant.retriever_faq_services import retriver_hybrid_async, QDRANT_COLLECTION_SERVICES
 

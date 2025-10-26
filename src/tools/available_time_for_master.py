@@ -1,6 +1,4 @@
 from fastmcp import FastMCP
-import json
-import asyncio
 
 from ..postgres.postgres_util import insert_dialog_state
 from ..crm.avaliable_time_for_master import avaliable_time_for_master_async

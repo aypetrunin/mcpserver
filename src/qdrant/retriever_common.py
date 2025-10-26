@@ -2,13 +2,14 @@ import os
 import asyncio
 import logging
 import random
-from typing import List, Callable, Awaitable
-from dotenv import load_dotenv
 import httpx
+import inspect
+from typing import List, Callable, Awaitable
 from fastembed.sparse.bm25 import Bm25
 from openai import AsyncOpenAI
 from qdrant_client import AsyncQdrantClient, models
-import inspect
+from dotenv import load_dotenv
+
 
 # -------------------- Logging --------------------
 # Настройка логирования для вывода сообщений в консоль

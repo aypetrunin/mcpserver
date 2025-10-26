@@ -1,10 +1,5 @@
 import re
-import os
-import psycopg2
-import json
-from dotenv import load_dotenv
-from typing import Optional, Dict
-import asyncpg  # Асинхронный клиент для PostgreSQL
+import asyncpg
 import asyncio
 
 from ..qdrant.retriever_common import (

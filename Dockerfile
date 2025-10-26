@@ -7,12 +7,10 @@ WORKDIR /app
 RUN pip install --upgrade pip
 RUN pip install uv
 
-# Копируем файлы зависимостей и исходный код
-COPY pyproject.toml ./
-COPY src ./src
+COPY . .
 
-# Установка зависимости с кодом, чтобы успешно установить fastmcp и другие
 RUN pip install .
+# RUN uv sync
 
 # Вторая стадия: создание финального образа
 FROM python:3.11-slim

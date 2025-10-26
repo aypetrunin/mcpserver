@@ -12,7 +12,9 @@ services:
       - "4016:4016"
       - "4017:4017"
     volumes:
-      - .:/app
+      - ./src:/app/src
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
     restart: unless-stopped
     networks:
       - zena-network

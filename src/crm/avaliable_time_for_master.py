@@ -1,8 +1,19 @@
-import logging
-import httpx
-from typing import List, Dict, Any
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+"""Модуль поиска свободных слотов по мастерам.
+
+Поиск ведется через API https://httpservice.ai2b.pro.
+"""
+
 import asyncio
+import logging
+from typing import Any, Dict, List
+
+import httpx
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
@@ -25,8 +36,7 @@ async def avaliable_time_for_master_async(
     count_slots: int = 30,
     timeout: float = TIMEOUT_SECONDS,
 ) -> List[Dict[str, Any]]:
-    """
-    Асинхронный запрос на получение доступных слотов по мастерам для указанной услуги.
+    """Асинхронный запрос на получение доступных слотов по мастерам для указанной услуги.
 
     :param date: Дата в формате 'YYYY-MM-DD' (на будущее — может использоваться на бэкенде).
     :param service_id: ID услуги, например "1-20347221".
@@ -51,11 +61,15 @@ async def avaliable_time_for_master_async(
             resp_json = response.json()
 
     except httpx.TimeoutException as e:
-        logger.error("Timeout while fetching available time for service_id=%s: %s", service_id, e)
+        logger.error(
+            "Timeout while fetching available time for service_id=%s: %s", service_id, e
+        )
         raise  # Повторная попытка через tenacity
 
     except httpx.HTTPStatusError as e:
-        logger.error("HTTP error %d for service_id=%s: %s", e.response.status_code, service_id, e)
+        logger.error(
+            "HTTP error %d for service_id=%s: %s", e.response.status_code, service_id, e
+        )
         return []
 
     except Exception as e:
@@ -75,7 +89,7 @@ async def avaliable_time_for_master_async(
 
     if staff_list is None:
         return []
- 
+
     results = [
         {
             "master_name": item["name"],
@@ -92,11 +106,13 @@ async def avaliable_time_for_master_async(
 
 # Пример использования
 if __name__ == "__main__":
+    """Тестовый пример работы функции."""
     async def main():
-        date = '2025-10-20' 
+        """Тестовый пример работы функции."""
+        date = "2025-10-20"
         service_id = "1-20539533"
-        print('Доступные мастера:')
+        logger.info("Доступные мастера:")
         result = await avaliable_time_for_master_async(date=date, service_id=service_id)
-        print(result)
+        logger.info(result)
 
     asyncio.run(main())

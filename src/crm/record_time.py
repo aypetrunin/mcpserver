@@ -1,13 +1,21 @@
-import logging
-import httpx
-import httpx
-import asyncio
+"""Модуль записи на услугу на определенную дату и время.
 
-from typing import Dict, Any, Optional
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+Поиск ведется через API https://httpservice.ai2b.pro.
+"""
+
+import asyncio
+import logging
+from typing import Any, Dict
+
+import httpx
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from ..crm.avaliable_time_for_master import avaliable_time_for_master_async
-
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
@@ -30,15 +38,14 @@ async def record_time_async(
     time: str,
     user_id: int,
     staff_id: int = 0,
-    channel_id: Optional[int] = 0,
-    comment: Optional[str] = "Запись через API",
+    channel_id: int | None = 0,
+    comment: str | None = "Запись через API",
     notify_by_sms: int = 0,
     notify_by_email: int = 0,
     endpoint_url: str = f"{BASE_URL}/appointments/yclients/create_booking",
     timeout: float = TIMEOUT_SECONDS,
 ) -> Dict[str, Any]:
-    """
-    Асинхронная запись пользователя на услугу через API с предварительной проверкой слотов.
+    """Асинхронная запись пользователя на услугу через API с предварительной проверкой слотов.
 
     :param product_id: ID услуги (service_id)
     :param date: Дата в формате YYYY-MM-DD
@@ -66,25 +73,37 @@ async def record_time_async(
     }
 
     requested_datetime = f"{date} {time}"
-    logger.debug("Preparing booking for service_id=%s at %s (staff_id=%s)", product_id, requested_datetime, staff_id)
+    logger.debug(
+        "Preparing booking for service_id=%s at %s (staff_id=%s)",
+        product_id,
+        requested_datetime,
+        staff_id,
+    )
 
     # Проверка доступности времени
     try:
         available_slots = await avaliable_time_for_master_async(
-            date=date,
-            service_id=product_id
+            date=date, service_id=product_id
         )
     except Exception as e:
-        logger.error("Failed to fetch available slots for service_id=%s: %s", product_id, e)
+        logger.error(
+            "Failed to fetch available slots for service_id=%s: %s", product_id, e
+        )
         return {"success": False, "error": "Не удалось проверить доступность времени"}
 
     master_slots = next(
-        (m.get("master_slots", []) for m in available_slots if m.get("master_id") == staff_id),
-        []
+        (
+            m.get("master_slots", [])
+            for m in available_slots
+            if m.get("master_id") == staff_id
+        ),
+        [],
     )
 
     if requested_datetime not in master_slots:
-        logger.warning(f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}")
+        logger.warning(
+            f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}"
+        )
         return {
             "success": False,
             "error": f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}",
@@ -94,7 +113,9 @@ async def record_time_async(
     # Отправка запроса на запись
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            logger.debug("Sending booking request to %s with payload=%s", endpoint_url, payload)
+            logger.debug(
+                "Sending booking request to %s with payload=%s", endpoint_url, payload
+            )
             response = await client.post(endpoint_url, json=payload)
             response.raise_for_status()
             resp_json = response.json()
@@ -107,11 +128,18 @@ async def record_time_async(
             ):
                 logger.warning(
                     "API bug detected while booking (400). Treating booking as successful. "
-                    "Payload=%s, Response=%s", payload, resp_json
+                    "Payload=%s, Response=%s",
+                    payload,
+                    resp_json,
                 )
-                return {"success": True, "info": f"Запись к master_id={staff_id} на время {requested_datetime} сделана"}
+                return {
+                    "success": True,
+                    "info": f"Запись к master_id={staff_id} на время {requested_datetime} сделана",
+                }
 
-            logger.info("Booking successful for user_id=%s, service_id=%s", user_id, product_id)
+            logger.info(
+                "Booking successful for user_id=%s, service_id=%s", user_id, product_id
+            )
             return resp_json
 
     except httpx.TimeoutException as e:
@@ -119,32 +147,41 @@ async def record_time_async(
         raise  # повторная попытка через tenacity
 
     except httpx.HTTPStatusError as e:
-        logger.error("HTTP error %d while booking service_id=%s: %s", e.response.status_code, product_id, e)
+        logger.error(
+            "HTTP error %d while booking service_id=%s: %s",
+            e.response.status_code,
+            product_id,
+            e,
+        )
         return {"success": False, "error": f"HTTP ошибка: {e.response.status_code}"}
 
     except Exception as e:
-        logger.exception("Unexpected error while booking service_id=%s: %s", product_id, e)
+        logger.exception(
+            "Unexpected error while booking service_id=%s: %s", product_id, e
+        )
         return {"success": False, "error": "Неизвестная ошибка при записи"}
 
 
 # Пример использования
 if __name__ == "__main__":
+    """Тестовый пример работы функции."""
     async def main():
+        """Тестовый пример работы функции."""
         url = "https://httpservice.ai2b.pro/appointments/yclients/create_booking"  # или твой боевой URL
         result = await record_time_async(
             endpoint_url=url,
             staff_id=4131055,
-            product_id='1-11620650',
+            product_id="1-11620650",
             date="2025-10-22",
             time="13:00",
-            user_id=1176612320,          # ID пользователя в твоей БД
-            channel_id=0,   # ID канала
+            user_id=1176612320,  # ID пользователя в твоей БД
+            channel_id=0,  # ID канала
             comment="Запись через API",
             notify_by_sms=1,
-            notify_by_email=1
+            notify_by_email=1,
         )
-        print(result)
- 
+        logger.info(result)
+
     asyncio.run(main())
 
 # cd /home/copilot_superuser/petrunin/mcp/zena_qdrant

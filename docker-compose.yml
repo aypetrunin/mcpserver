@@ -1,8 +1,8 @@
 services:
   mcpsrv:
-    container_name: zena_mcp
+    container_name: zena_mcp_
     build: .
-    image: zena_mcp:latest
+    image: zena_mcp_:latest
     env_file:
       - .env
     ports:
@@ -16,17 +16,3 @@ services:
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
     restart: unless-stopped
-
-
-# docker-compose down           # Остановить и удалить старый контейнер и сеть
-# docker-compose up --build -d  # С пересборкой и запуском в фоне
-
-# cd /home/copilot_superuser/petrunin/zena/mcpserver
-# docker-compose logs -f mcpsrv
-
-# apt update && apt install -y curl
-
-# docker-compose up -d  # запуск без # пересборки
-# docker-compose restart  # перезапуск контейнера при изменениях
-
-# docker-compose up --build # если нужно полностью применить новые зависимости

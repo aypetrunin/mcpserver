@@ -1,52 +1,24 @@
-# Первая стадия: установка зависимостей и сборка
-FROM python:3.11-slim AS builder
-
-WORKDIR /app
-
-# Обновление pip и установка uv
-RUN pip install --upgrade pip
-RUN pip install uv
-
-COPY . .
-
-RUN pip install .
-# RUN uv sync
-
-# Вторая стадия: создание финального образа
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Копирование установленных библиотек из builder (зависимости)
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Устанавливаем зависимости для сборки
+RUN apt-get update && apt-get install -y curl && \
+    pip install --upgrade pip && \
+    pip install uv && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Копирование исходного кода из builder, чтобы были последние данные
-COPY --from=builder /app /app
+# Копируем проект
+COPY . .
 
-EXPOSE 4011
-EXPOSE 4012
-EXPOSE 4015
-EXPOSE 4016
-EXPOSE 4017
+# Устанавливаем зависимости через uv
+RUN uv sync --frozen --no-dev
 
-CMD ["python", "main.py"]
+# Устанавливаем пакет приложения
+RUN uv pip install --no-deps .
 
+# Открываем порт
+EXPOSE 4011 4012 4015 4016 4017
 
-
-# FROM python:3.11-slim
-
-# WORKDIR /app
-
-# COPY pyproject.toml ./
-# COPY src ./src
-
-# RUN pip install --upgrade pip
-# RUN pip install .
-
-# # Пробросить порты можно через EXPOSE (опционально)
-# # 4011 - Alisa
-# # 4012 - Sofia
-# EXPOSE 4011
-# EXPOSE 4012
-
-# CMD ["python", "main.py"]
+# Запуск
+CMD ["uv", "run", "python", "main.py"]

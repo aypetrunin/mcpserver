@@ -1,14 +1,21 @@
+"""MCP-сервер записи клиента на выбранную услугу на определенную дату и время."""
+
+from typing import Any
+
 from fastmcp import FastMCP
 
-from ..crm.record_time import record_time_async 
+from ..crm.record_time import record_time_async
 from ..postgres.postgres_util import insert_dialog_state
 
 tool_record_time = FastMCP(name="record_time")
 
+
 @tool_record_time.tool(
     name="record_time",
-    description=("""
-        Запись клиента на медицинскую услугу в выбранную дату и время.\n\n
+    description=(
+        """
+        Запись клиента на медицинскую услугу в выбранную дату и время.
+
         **Назначение:**\n
         Используется, когда клиент подтвердил желание записаться на конкретную услугу в указанное время.
         Фиксирует запись с именем и телефоном клиента для последующего подтверждения или обработки администрацией.\n\n
@@ -27,7 +34,7 @@ tool_record_time = FastMCP(name="record_time")
         **Returns:**\n
         - dict: success = True, если запись прошла успешно, иначе False.
         """
-    )
+    ),
 )
 async def record_time(
     session_id: str,
@@ -35,31 +42,30 @@ async def record_time(
     time: str,
     product_id: str,
     client_id: int,
-    master_id: int = 0
-) -> dict:
-
+    master_id: int = 0,
+) -> dict[str, Any]:
+    """Функция записи на выбранную услугу на определенную дату и время."""
     responce = await record_time_async(
-        date = date,
-        time = time,
-        product_id = product_id,
-        user_id = client_id,
-        staff_id = master_id
+        date=date,
+        time=time,
+        product_id=product_id,
+        user_id=client_id,
+        staff_id=master_id,
     )
-    print(responce)
 
     if responce:
-
         insert_dialog_state(
             session_id=session_id,
-            record_time={"record_time": {
-                                "date": date,
-                                "time": time,
-                                "product_id": product_id,
-                                "client_id": client_id,
-                                "master_id": master_id,
-                            }
-                        },
-            status='postrecord',
+            record_time={
+                "record_time": {
+                    "date": date,
+                    "time": time,
+                    "product_id": product_id,
+                    "client_id": client_id,
+                    "master_id": master_id,
+                }
+            },
+            status="postrecord",
         )
-    
+
     return responce

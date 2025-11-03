@@ -202,7 +202,7 @@ async def retriever_product_hybrid_async(
     product_type: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Гибридный поиск.
-     
+
     Поиск объединяющий dense-векторы (OpenAI Ada)
     и sparse-векторы (BM25) с помощью Reciprocal Rank Fusion (RRF).
     Используется, если нужно объединить "понимание смысла" и "точное совпадение слов".
@@ -272,7 +272,7 @@ async def retriever_product_hybrid_mult_async(
     product_type: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Расширенный гибридный поиск.
-     
+
     Поиск использующий FormulaQuery
     для задания кастомных весов при объединении скоринговых факторов.
     Подходит для бустинга релевантности по дополнительным полям.
@@ -360,7 +360,7 @@ if __name__ == "__main__":
 
     async def main():
         """Пример тестового вызова гибридного поиска.
-        
+
         Ищет массажные услуги по фильтрам и запросу.
         """
         results = await retriever_product_hybrid_async(

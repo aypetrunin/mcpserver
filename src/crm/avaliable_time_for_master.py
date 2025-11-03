@@ -107,6 +107,7 @@ async def avaliable_time_for_master_async(
 # Пример использования
 if __name__ == "__main__":
     """Тестовый пример работы функции."""
+
     async def main():
         """Тестовый пример работы функции."""
         date = "2025-10-20"

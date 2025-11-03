@@ -1,6 +1,5 @@
 """MCP-сервер для поиска свободных слотов по мастерам."""
 
-
 from fastmcp import FastMCP
 
 from ..crm.avaliable_time_for_master import avaliable_time_for_master_async

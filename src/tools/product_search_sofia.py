@@ -15,7 +15,7 @@ tool_product_search = FastMCP(name="product_search")
 @tool_product_search.tool(
     name="product_search",
     description=(
-    """
+        """
     Retrieve.
 
     Retrieve products based on query and optional indications, contraindications, body parts and product_type.
@@ -158,4 +158,3 @@ async def product_search(
     )
 
     return responce
-

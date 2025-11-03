@@ -3,6 +3,9 @@ cd /home/copilot_superuser/petrunin/zena/mcpserver
 source .venv/bin/activate
 python -c "import sys; print(sys.executable)"
 
+# Интерпритатор
+/home/copilot_superuser/petrunin/zena/mcpserver/.venv/bin/python
+
 
 # 1.Фиксация версии Python для проекта
 # переходим в рабочий каталог и выполняем команду

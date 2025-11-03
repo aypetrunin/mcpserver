@@ -74,7 +74,7 @@ async def points_to_dict(
 async def retriver_hybrid_async(
     query: str,
     database_name: str,
-    channel_id: int | None= None,
+    channel_id: int | None = None,
     hybrid: bool = True,
     limit: int = 5,
 ) -> list[dict[str, Any]]:

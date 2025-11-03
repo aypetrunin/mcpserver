@@ -1,4 +1,5 @@
 """Модуль сборки MCP-сервера для фирмы Anisa."""
+
 import os
 
 from fastmcp import FastMCP

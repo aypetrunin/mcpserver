@@ -110,7 +110,7 @@ tool_product_search = FastMCP(name="product_search")
 async def product_search(
     channel_id: str,
     session_id: str,
-    query: str | None= None,
+    query: str | None = None,
     indications: list[str] | None = None,
     contraindications: list[str] | None = None,
     product_type: list[str] | None = None,

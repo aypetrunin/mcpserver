@@ -14,6 +14,7 @@ from ..qdrant.retriever_common import POSTGRES_CONFIG
 
 load_dotenv()
 
+
 def insert_dialog_state(
     session_id: str,
     name: str | None = None,
@@ -26,20 +27,12 @@ def insert_dialog_state(
     status: str | None = None,
 ) -> int | None:
     """Функция записи в таблицу dialog_state вспомогательной информации."""
-    # conn = psycopg2.connect(
-    #     user=os.getenv("POSTGRES_USER"),
-    #     password=os.getenv("POSTGRES_PASSWORD"),
-    #     dbname=os.getenv("POSTGRES_DB"),
-    #     host=os.getenv("POSTGRES_HOST"),
-    #     port=os.getenv("POSTGRES_PORT"),
-    # )
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     try:
         # print("insert_dialog_state")
         with conn.cursor() as cur:
             # --- динамическое формирование data ---
             data = {}
-
             if product_id is not None:
                 data["product_id"] = product_id
             if product_search is not None:

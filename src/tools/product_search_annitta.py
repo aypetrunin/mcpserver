@@ -15,7 +15,7 @@ tool_product_search = FastMCP(name="product_search")
 @tool_product_search.tool(
     name="product_search",
     description=(
-    """
+        """
     Retrieve products based on query.
 
     Args:

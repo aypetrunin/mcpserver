@@ -7,8 +7,8 @@ from fastmcp import FastMCP
 from ..postgres.postgres_util import insert_dialog_state
 from ..qdrant.retriever_product import retriever_product_hybrid_async
 
-
 tool_product_search = FastMCP(name="product_search")
+
 
 @tool_product_search.tool(
     name="product_search",

@@ -8,11 +8,8 @@ import json
 from typing import Dict
 
 import psycopg2
-from dotenv import load_dotenv
 
 from ..qdrant.retriever_common import POSTGRES_CONFIG
-
-load_dotenv()
 
 
 def insert_dialog_state(
@@ -93,7 +90,7 @@ def select_indications_key(channel_id: int) -> str | None:
                     WHERE key <> ''
                 ) uniq_keys;
                 """,
-                (channel_id,)
+                (channel_id,),
             )
             indications_key = cur.fetchone()[0]
             return indications_key
@@ -103,7 +100,11 @@ def select_indications_key(channel_id: int) -> str | None:
 
 def select_key_(channel_id: int, key: str) -> str | None:
     """Функция выбора уникальных ключей из выбранного столбца."""
-    assert key in {'body_parts', 'indications_key', 'contraindications_key'}  # допустимые столбцы
+    assert key in {
+        "body_parts",
+        "indications_key",
+        "contraindications_key",
+    }  # допустимые столбцы
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     try:
         with conn.cursor() as cur:
@@ -127,7 +128,6 @@ def select_key_(channel_id: int, key: str) -> str | None:
         conn.close()
 
 
-
 def select_key(channel_id: int) -> str | None:
     """Функция выбора уникальных ключей из view для данного канала."""
     conn = psycopg2.connect(**POSTGRES_CONFIG)
@@ -142,9 +142,9 @@ def select_key(channel_id: int) -> str | None:
             data = cur.fetchone()
             if data is not None:
                 return {
-                    "body_parts" : data[0],
-                    "indications_key" : data[1],
-                    "contraindications_key" : data[2],
+                    "body_parts": data[0],
+                    "indications_key": data[1],
+                    "contraindications_key": data[2],
                 }
             else:
                 return None  # либо '', если нужен пустой результат
@@ -152,13 +152,9 @@ def select_key(channel_id: int) -> str | None:
         conn.close()
 
 
-
-
-if __name__=="__main__":
-    result = select_key(
-        channel_id = 1
-    )
-    print(f"\n{result}")
+if __name__ == "__main__":
+    result = select_key(channel_id=1)
+    # print(f"\n{result}")
 
 # cd /home/copilot_superuser/petrunin/zena
 # uv run python -m mcpserver.src.postgres.postgres_util

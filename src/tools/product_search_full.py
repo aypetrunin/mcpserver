@@ -5,8 +5,7 @@ from typing import Any
 from fastmcp import FastMCP
 
 from ..postgres.postgres_util import insert_dialog_state, select_key
-from ..qdrant.retriever_product import  retriever_product_hybrid_async
-
+from ..qdrant.retriever_product import retriever_product_hybrid_async
 
 key = select_key(channel_id=1)
 
@@ -115,13 +114,13 @@ description = f"""
         query (str, optional): A free-text search query to match against product descriptions.
         
         indications (List[str], optional): A list of positive indications (symptoms or cosmetic needs).
-            Only the following values are allowed: {key['indications_key']}
+            Only the following values are allowed: {key["indications_key"]}
 
         contraindications (List[str], optional): A list of negative indications to exclude.
-            Only the following values are allowed: {key['contraindications_key']}
+            Only the following values are allowed: {key["contraindications_key"]}
 
         body_parts (List[str], optional): A list of body parts to be treated/serviced.
-            Only the following values are allowed: {key['body_parts']}
+            Only the following values are allowed: {key["body_parts"]}
 
         session_id(str): id dialog session.
 
@@ -135,8 +134,9 @@ description = f"""
             - price (str): Цена процедуры в денежном формате.
     """
 
- 
+
 tool_product_search = FastMCP(name="product_search")
+
 
 @tool_product_search.tool(
     name="product_search",

@@ -1,11 +1,17 @@
+"""Универсальный клас создания mcp-сервера поиска услуг."""
+
 from typing import Any
+
 from fastmcp import FastMCP
+
 from ..postgres.postgres_util import insert_dialog_state
 from ..qdrant.retriever_product import retriever_product_hybrid_async
 
 
-class MCPService:
-    def __init__(self):
+class MCPServiceQuery:
+    """Универсальный клас создания mcp-сервера поиска услуг."""
+    def __init__(self) -> None:
+        """Инициализация экземпляра класса mcp-сервера."""
         self.tool_product_search = FastMCP(name="product_search")
         self._register_tool()
 
@@ -51,4 +57,5 @@ class MCPService:
             return response
 
     def get_tool(self) -> FastMCP:
+        """Возвращаем сам FastMCP инструмент для монтирования."""
         return self.tool_product_search

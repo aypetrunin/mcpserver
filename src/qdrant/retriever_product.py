@@ -373,9 +373,10 @@ if __name__ == "__main__":
         )
         logger.info(f"Результаты: {len(results)} элементов")
         for row in results:
-            print(row['body_parts'])
-            print(row['indications_key'])
-            print()
+            pass
+            # print(row["body_parts"])
+            # print(row["indications_key"])
+            # print()
             # logger.info(results[:3])
 
     asyncio.run(main())

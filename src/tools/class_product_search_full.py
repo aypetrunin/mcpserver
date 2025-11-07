@@ -1,11 +1,17 @@
+"""Универсальный клас создания mcp-сервера поиска услуг."""
+
 from typing import Any
+
 from fastmcp import FastMCP
+
 from ..postgres.postgres_util import insert_dialog_state, select_key
 from ..qdrant.retriever_product import retriever_product_hybrid_async
 
 
 class MCPServiceFull:
-    def __init__(self, channel_id: str):
+    """Универсальный клас создания mcp-сервера поиска услуг."""
+    def __init__(self, channel_id: str) -> None:
+        """Инициализация экземпляра класса mcp-сервера."""
         self.channel_id = channel_id
         self.key = select_key(channel_id=int(channel_id))
         self.tool_product_search = FastMCP(name="product_search")
@@ -117,13 +123,13 @@ class MCPServiceFull:
         query (str, optional): A free-text search query to match against product descriptions.
         
         indications (List[str], optional): A list of positive indications (symptoms or cosmetic needs).
-            Only the following values are allowed: {self.key['indications_key']}
+            Only the following values are allowed: {self.key["indications_key"]}
 
         contraindications (List[str], optional): A list of negative indications to exclude.
-            Only the following values are allowed: {self.key['contraindications_key']}
+            Only the following values are allowed: {self.key["contraindications_key"]}
 
         body_parts (List[str], optional): A list of body parts to be treated/serviced.
-            Only the following values are allowed: {self.key['body_parts']}
+            Only the following values are allowed: {self.key["body_parts"]}
 
         session_id(str): id dialog session.
 
@@ -173,5 +179,5 @@ class MCPServiceFull:
             return response
 
     def get_tool(self) -> FastMCP:
-        # Возвращаем сам FastMCP инструмент для монтирования
+        """Возвращаем сам FastMCP инструмент для монтирования."""
         return self.tool_product_search

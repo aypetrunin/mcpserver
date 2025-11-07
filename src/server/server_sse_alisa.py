@@ -7,11 +7,11 @@ from fastmcp import FastMCP
 from ..tools.available_time_for_master import tool_available_time_for_master
 from ..tools.faq import tool_faq
 from ..tools.product_id import tool_record_product_id
-from ..tools.product_search_alisa import tool_product_search
+from ..tools.product_search_full import tool_product_search
 from ..tools.record_time import tool_record_time
 from ..tools.services import tool_services
 
-MCP_PORT_ALISA = int(os.getenv("MCP_PORT_ALISA"))  # 4011
+MCP_PORT_ALISA = int(os.getenv("MCP_PORT_ALISA"))  # 5001
 
 mcp = FastMCP(name="Alisa")
 

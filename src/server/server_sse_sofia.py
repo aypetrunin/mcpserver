@@ -11,7 +11,8 @@ from ..tools.product_search_sofia import tool_product_search
 from ..tools.record_time import tool_record_time
 from ..tools.services import tool_services
 
-MCP_PORT_SOFIA = int(os.getenv("MCP_PORT_SOFIA"))  # 4012
+
+MCP_PORT_SOFIA = int(os.getenv("MCP_PORT_SOFIA"))  # 5002
 
 mcp = FastMCP(name="Sofia")
 

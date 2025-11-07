@@ -74,82 +74,91 @@ def insert_dialog_state(
         conn.close()
 
 
-# def update_agent_chat_history(
-#     session_id: str,
-#     product_id: dict | None = None,
-#     product_search: dict | None = None,
-#     product_type: dict | None = None,
-#     body_parts: dict | None = None,
-#     record_time: dict | None = None,
-#     avaliable_time: dict | None = None,
-#     status: str | None = None,
-# ) -> None:
-#     # conn = psycopg2.connect(
-#     #     user=os.getenv("POSTGRES_USER"),
-#     #     password=os.getenv("POSTGRES_PASSWORD"),
-#     #     dbname=os.getenv("POSTGRES_DB"),
-#     #     host=os.getenv("POSTGRES_HOST"),
-#     #     port=os.getenv("POSTGRES_PORT"),
-#     # )
-#     conn = psycopg2.connect(**POSTGRES_CONFIG)
-#     try:
-#         with conn.cursor() as cur:
-#             # Находим запись с максимальным id по session_id
-#             cur.execute(
-#                 """
-#                 SELECT id FROM agent_chat_histories
-#                 WHERE session_id = %s
-#                 ORDER BY id DESC
-#                 LIMIT 1
-#             """,
-#                 (session_id,),
-#             )
-#             row = cur.fetchone()
-#             if row is None:
-#                 print(f"Нет записей с session_id = {session_id}")
-#                 return
+def select_indications_key(channel_id: int) -> str | None:
+    """Функция выбора уникальных показаний."""
+    conn = psycopg2.connect(**POSTGRES_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT string_agg('"' || unique_key || '"', ' ') AS all_keys
+                FROM (
+                    SELECT DISTINCT TRIM(key) AS unique_key
+                    FROM (
+                        SELECT regexp_split_to_table(indications_key, '[,]+') AS key
+                        FROM services
+                        WHERE indications_key IS NOT NULL
+                          AND channel_id = %s
+                    ) sub
+                    WHERE key <> ''
+                ) uniq_keys;
+                """,
+                (channel_id,)
+            )
+            indications_key = cur.fetchone()[0]
+            return indications_key
+    finally:
+        conn.close()
 
-#             record_id = row[0]
 
-#             # Формируем список полей для обновления
-#             fields = []
-#             values = []
+def select_key_(channel_id: int, key: str) -> str | None:
+    """Функция выбора уникальных ключей из выбранного столбца."""
+    assert key in {'body_parts', 'indications_key', 'contraindications_key'}  # допустимые столбцы
+    conn = psycopg2.connect(**POSTGRES_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            sql = f"""
+                SELECT string_agg('"' || unique_key || '"', ', ') AS all_keys
+                FROM (
+                    SELECT DISTINCT TRIM(k) AS unique_key
+                    FROM (
+                        SELECT regexp_split_to_table({key}, '[,\n]+') AS k
+                        FROM services
+                        WHERE {key} IS NOT NULL
+                          AND channel_id = %s
+                    ) sub
+                    WHERE k <> ''
+                ) uniq_keys;
+            """
+            cur.execute(sql, (channel_id,))
+            all_keys = cur.fetchone()[0]
+            return all_keys
+    finally:
+        conn.close()
 
-#             if product_id is not None:
-#                 fields.append("product_id = %s")
-#                 values.append(json.dumps(product_id))
-#             if product_search is not None:
-#                 fields.append("product_search = %s")
-#                 values.append(json.dumps(product_search))
-#             if product_type is not None:
-#                 fields.append("product_type = %s")
-#                 values.append(json.dumps(product_type))
-#             if body_parts is not None:
-#                 fields.append("body_parts = %s")
-#                 values.append(json.dumps(body_parts))
-#             if record_time is not None:
-#                 fields.append("record_time = %s")
-#                 values.append(json.dumps(record_time))
-#             if avaliable_time is not None:
-#                 fields.append("avaliable_time = %s")
-#                 values.append(json.dumps(avaliable_time))
-#             if status:
-#                 fields.append("status = %s")
-#                 values.append(status)
 
-#             if not fields:
-#                 print("Нет данных для обновления.")
-#                 return
 
-#             values.append(record_id)
-#             query = f"""
-#                 UPDATE agent_chat_histories
-#                 SET {", ".join(fields)}
-#                 WHERE id = %s
-#             """
+def select_key(channel_id: int) -> str | None:
+    """Функция выбора уникальных ключей из view для данного канала."""
+    conn = psycopg2.connect(**POSTGRES_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            sql = """
+                SELECT body_parts, indications_key, contraindications_key
+                FROM view_channel_services_keys
+                WHERE channel_id = %s;
+            """
+            cur.execute(sql, (channel_id,))
+            data = cur.fetchone()
+            if data is not None:
+                return {
+                    "body_parts" : data[0],
+                    "indications_key" : data[1],
+                    "contraindications_key" : data[2],
+                }
+            else:
+                return None  # либо '', если нужен пустой результат
+    finally:
+        conn.close()
 
-#             cur.execute(query, values)
-#             conn.commit()
-#             print(f"Статус: {status}")
-#     finally:
-#         conn.close()
+
+
+
+if __name__=="__main__":
+    result = select_key(
+        channel_id = 1
+    )
+    print(f"\n{result}")
+
+# cd /home/copilot_superuser/petrunin/zena
+# uv run python -m mcpserver.src.postgres.postgres_util

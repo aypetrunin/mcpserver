@@ -365,14 +365,18 @@ if __name__ == "__main__":
         """
         results = await retriever_product_hybrid_async(
             channel_id="1",
-            query="лпг массаж",
-            # indications=["отечность"],
+            # query="лпг массаж",
+            indications=["отечность"],
             # contraindications=["высокое"],
-            # body_parts=["тело"],
+            body_parts=["лицо"],
             # product_type=["разовый"]
         )
         logger.info(f"Результаты: {len(results)} элементов")
-        # logger.info(results[:3])
+        for row in results:
+            print(row['body_parts'])
+            print(row['indications_key'])
+            print()
+            # logger.info(results[:3])
 
     asyncio.run(main())
 

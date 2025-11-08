@@ -4,17 +4,17 @@ import os
 
 from fastmcp import FastMCP
 
+from ..tools.available_time_for_master import tool_available_time_for_master
+from ..tools.class_product_search_query import MCPSearchProductQuery
 from ..tools.faq import tool_faq
-from ..tools.services import tool_services
 from ..tools.product_id import tool_record_product_id
 from ..tools.record_time import tool_record_time
-from ..tools.available_time_for_master import tool_available_time_for_master
-from ..tools.class_product_search_query import MCPServiceQuery
+from ..tools.services import tool_services
 
 MCP_PORT_ANNITTA = int(os.getenv("MCP_PORT_ANNITTA"))  # 5006
 CHANNEL_ID_ANNITTA = int(os.getenv("CHANNEL_ID_ANNITTA"))  # 6
 
-tool_product_search = MCPServiceQuery().get_tool()
+tool_product_search = MCPSearchProductQuery(channel_id=CHANNEL_ID_ANNITTA).get_tool()
 
 mcp = FastMCP(name="Annitta")
 

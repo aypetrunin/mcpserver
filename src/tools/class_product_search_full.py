@@ -8,8 +8,9 @@ from ..postgres.postgres_util import insert_dialog_state, select_key
 from ..qdrant.retriever_product import retriever_product_hybrid_async
 
 
-class MCPServiceFull:
+class MCPSearchProductFull:
     """Универсальный клас создания mcp-сервера поиска услуг."""
+
     def __init__(self, channel_id: str) -> None:
         """Инициализация экземпляра класса mcp-сервера."""
         self.channel_id = channel_id
@@ -32,8 +33,9 @@ class MCPServiceFull:
             "indications": ["отечность"],
             "contraindications": ["варикоз"],
             "body_parts": ["ноги"],
-            "product_type": [],,
-            "session_id": "1-232327692"
+            "product_type": [],
+            "session_id": "1-232327692",
+            "channel_id": "2"
         }}
 
     Пример 2: Клиент: "У меня редкие волосы на бровях, что можете предложить?"
@@ -44,7 +46,8 @@ class MCPServiceFull:
             "contraindications": [],
             "body_parts": ["брови, волосы"],
             "product_type": [],,
-            "session_id": "1-232327692"
+            "session_id": "1-232327692",
+            "channel_id": "2"
         }}
 
     Пример 3: Клиент: "Что у Вас есть для лица?", "А что есть для лица?", "Что можете предложить для лица", "Нужно что-то сделать с лицом"
@@ -55,7 +58,8 @@ class MCPServiceFull:
             "contraindications": [],
             "body_parts": ["лицо"],
             "product_type": [],,
-            "session_id": "1-232327692"
+            "session_id": "1-232327692",
+            "channel_id": "2"
         }}
 
     Пример 4: Клиент: "Можно записаться на консультацию?", "У вас есть консультация?"
@@ -65,7 +69,8 @@ class MCPServiceFull:
             "indications": [],
             "contraindications": [],
             "body_parts": [],,
-            "session_id": "1-232327692"
+            "session_id": "1-232327692",
+            "channel_id": "2"
         }}
 
     Пример 5: Клиент: "Есть ли услуги для коррекции фигуры?"
@@ -76,7 +81,8 @@ class MCPServiceFull:
             "contraindications": [],
             "body_parts": [],
             "product_type": [],,
-            "session_id": "1-232327692"
+            "session_id": "1-232327692",
+            "channel_id": "2"
         }}
 
     Пример 6: Клиент: "Нужна эпиляция волос подмышками?"
@@ -86,7 +92,8 @@ class MCPServiceFull:
             "indications": ["волосы"],
             "contraindications": [],
             "body_parts": ["подмышки"],,
-            "session_id": "1-232327692"
+            "session_id": "1-232327692",
+            "channel_id": "2"
         }}
 
     Пример 7: Клиент: "У Вас есть акции на услуги?"
@@ -96,7 +103,8 @@ class MCPServiceFull:
             "indications": [],
             "contraindications": [],
             "body_parts": [],
-            "session_id": "1-232327692"
+            "session_id": "1-232327692",
+            "channel_id": "2"
         }}
     
     Пример 8: Клиент: "Какие есть комплексы для коррекции фигуры"
@@ -106,7 +114,9 @@ class MCPServiceFull:
             "indications": [коррекция фигуры],
             "contraindications": [],
             "body_parts": [],
-            "session_id": "1-232327692"
+            "session_id": "1-232327692",,
+            "channel_id": "2"
+            
         }}
 
     Пример 9: Клиент: "Можно записаться на консультацию"
@@ -116,20 +126,21 @@ class MCPServiceFull:
             "indications": [],
             "contraindications": [],
             "body_parts": [],
-            "session_id": "1-232327692"
+            "session_id": "1-232327692",
+            "channel_id": "2"
         }}
 
     Args:
         query (str, optional): A free-text search query to match against product descriptions.
         
-        indications (List[str], optional): A list of positive indications (symptoms or cosmetic needs).
-            Only the following values are allowed: {self.key["indications_key"]}
+        indications (List[str], optional): A list of positive indications (symptoms or cosmetic needs). \
+        Only the following values are allowed: {self.key["indications_key"]}
 
-        contraindications (List[str], optional): A list of negative indications to exclude.
-            Only the following values are allowed: {self.key["contraindications_key"]}
+        contraindications (List[str], optional): A list of negative indications to exclude. \
+        Only the following values are allowed: {self.key["contraindications_key"]}
 
-        body_parts (List[str], optional): A list of body parts to be treated/serviced.
-            Only the following values are allowed: {self.key["body_parts"]}
+        body_parts (List[str], optional): A list of body parts to be treated/serviced. \
+        Only the following values are allowed: {self.key["body_parts"]}
 
         session_id(str): id dialog session.
 

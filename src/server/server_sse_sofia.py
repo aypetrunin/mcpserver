@@ -5,16 +5,16 @@ import os
 from fastmcp import FastMCP
 
 from ..tools.available_time_for_master import tool_available_time_for_master
+from ..tools.class_product_search_full import MCPSearchProductFull
 from ..tools.faq import tool_faq
 from ..tools.product_id import tool_record_product_id
 from ..tools.record_time import tool_record_time
 from ..tools.services import tool_services
-from ..tools.class_product_search_full import MCPServiceFull
 
 MCP_PORT_SOFIA = int(os.getenv("MCP_PORT_SOFIA"))  # 5002
 CHANNEL_ID_SOFIA = int(os.getenv("CHANNEL_ID_SOFIA"))  # 1
 
-tool_product_search = MCPServiceFull(channel_id=CHANNEL_ID_SOFIA).get_tool()
+tool_product_search = MCPSearchProductFull(channel_id=CHANNEL_ID_SOFIA).get_tool()
 
 mcp = FastMCP(name="Sofia")
 

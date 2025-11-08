@@ -8,10 +8,12 @@ from ..postgres.postgres_util import insert_dialog_state
 from ..qdrant.retriever_product import retriever_product_hybrid_async
 
 
-class MCPServiceQuery:
+class MCPSearchProductQuery:
     """Универсальный клас создания mcp-сервера поиска услуг."""
-    def __init__(self) -> None:
+
+    def __init__(self, channel_id: str) -> None:
         """Инициализация экземпляра класса mcp-сервера."""
+        self.channel_id = channel_id
         self.tool_product_search = FastMCP(name="product_search")
         self._register_tool()
 
@@ -42,7 +44,7 @@ class MCPServiceQuery:
             query: str,
         ) -> list[dict[str, Any]]:
             response = await retriever_product_hybrid_async(
-                channel_id=channel_id,
+                channel_id=self.channel_id,
                 query=query,
             )
 

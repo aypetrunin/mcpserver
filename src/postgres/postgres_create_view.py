@@ -1,8 +1,4 @@
-"""Модуль вспомогательной утилиты записи информации в dialog_state.
-
-Запись производится mcp-серверами для фиксации свое работы.
-Изменения статума диалога, выбранной услуги, свободных слотов, результатов поиска услуг.
-"""
+"""Модуль модуль создания вспомогательных view."""
 
 import json
 from typing import Dict
@@ -13,90 +9,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from ..qdrant.retriever_common import POSTGRES_CONFIG
 
 
-def insert_dialog_state(
-    session_id: str,
-    name: str | None = None,
-    product_id: Dict | None = None,
-    product_search: Dict | None = None,
-    product_type: Dict | None = None,
-    body_parts: Dict | None = None,
-    record_time: Dict | None = None,
-    avaliable_time: Dict | None = None,
-    status: str | None = None,
-) -> int | None:
-    """Функция записи в таблицу dialog_state вспомогательной информации."""
-    conn = psycopg2.connect(**POSTGRES_CONFIG)
-    try:
-        # print("insert_dialog_state")
-        with conn.cursor() as cur:
-            # --- динамическое формирование data ---
-            data = {}
-            if product_id is not None:
-                data["product_id"] = product_id
-            if product_search is not None:
-                data["product_search"] = product_search
-            if product_type is not None:
-                data["product_type"] = product_type
-            if body_parts is not None:
-                data["body_parts"] = body_parts
-            if record_time is not None:
-                data["record_time"] = record_time
-            if avaliable_time is not None:
-                data["avaliable_time"] = avaliable_time
-            if status is not None:
-                data["status"] = status
-
-            if not data:
-                # print("Нет данных для вставки.")
-                return None
-
-            # --- вставка записи ---
-            cur.execute(
-                """
-                INSERT INTO dialog_state (session_id, name, data)
-                VALUES (%s, %s, %s)
-                RETURNING id
-            """,
-                (
-                    session_id,
-                    name,
-                    json.dumps(data),  # динамически собранный JSON
-                ),
-            )
-
-            new_id = cur.fetchone()[0]
-            conn.commit()
-            # print(f"Создана запись dialog_state id={new_id}")
-            return new_id
-    finally:
-        conn.close()
-
-
-def select_key(channel_id: int) -> str | None:
-    """Функция выбора уникальных ключей из view для данного канала."""
-    conn = psycopg2.connect(**POSTGRES_CONFIG)
-    try:
-        with conn.cursor() as cur:
-            sql = """
-                SELECT body_parts, indications_key, contraindications_key
-                FROM view_channel_services_keys
-                WHERE channel_id = %s;
-            """
-            cur.execute(sql, (channel_id,))
-            data = cur.fetchone()
-            if data is not None:
-                return {
-                    "body_parts": data[0],
-                    "indications_key": data[1],
-                    "contraindications_key": data[2],
-                }
-            else:
-                return None  # либо '', если нужен пустой результат
-    finally:
-        conn.close()
-
-
-def create_or_replace_view() -> None:
+def create_view_channel_services_keys() -> None:
     """Функция создания или замены представления view_channel_services_keys в базе."""
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)  # для выполнения CREATE VIEW без транзакции
@@ -183,8 +96,8 @@ def create_product_service_view():
 
 
 if __name__ == "__main__":
-    result = select_key(channel_id=1)
-    # print(f"\n{result}")
+    create_view_channel_services_keys()
+    create_product_service_view()
 
 # cd /home/copilot_superuser/petrunin/zena
-# uv run python -m mcpserver.src.postgres.postgres_util
+# uv run python -m mcpserver.src.postgres.postgres_create_view

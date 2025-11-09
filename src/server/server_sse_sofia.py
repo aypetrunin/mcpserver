@@ -14,7 +14,8 @@ from ..tools.services import tool_services
 MCP_PORT_SOFIA = int(os.getenv("MCP_PORT_SOFIA"))  # 5002
 CHANNEL_ID_SOFIA = int(os.getenv("CHANNEL_ID_SOFIA"))  # 1
 
-tool_product_search = MCPSearchProductFull(channel_id=CHANNEL_ID_SOFIA).get_tool()
+product_search = MCPSearchProductFull(channel_id=CHANNEL_ID_SOFIA)
+tool_product_search = product_search.get_tool()
 
 mcp = FastMCP(name="Sofia")
 

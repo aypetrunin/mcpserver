@@ -6,6 +6,7 @@ from fastmcp import FastMCP
 
 from ..postgres.postgres_util import insert_dialog_state, select_key
 from ..qdrant.retriever_product import retriever_product_hybrid_async
+from ..qdrant.retriever_common import logger
 
 
 class MCPSearchProductFull:
@@ -15,10 +16,11 @@ class MCPSearchProductFull:
         """Инициализация экземпляра класса mcp-сервера."""
         self.channel_id = channel_id
         self.key = select_key(channel_id=int(channel_id))
+        self.description = self._set_description()
         self.tool_product_search = FastMCP(name="product_search")
         self._register_tool()
 
-    def _get_description(self) -> str:
+    def _set_description(self) -> str:
         description = f"""
     Retrieve.
 
@@ -134,13 +136,13 @@ class MCPSearchProductFull:
         query (str, optional): A free-text search query to match against product descriptions.
         
         indications (List[str], optional): A list of positive indications (symptoms or cosmetic needs). \
-        Only the following values are allowed: {self.key["indications_key"]}
+Only the following values from the list are allowed: [{self.key.get("indications_key", "Нет данных")}]
 
         contraindications (List[str], optional): A list of negative indications to exclude. \
-        Only the following values are allowed: {self.key["contraindications_key"]}
+Only the following values from the list are allowed: [{self.key.get("contraindications_key", "Нет данных")}]
 
         body_parts (List[str], optional): A list of body parts to be treated/serviced. \
-        Only the following values are allowed: {self.key["body_parts"]}
+Only the following values from the list are allowed: [{self.key.get("body_parts", "Нет данных.")}]
 
         session_id(str): id dialog session.
 
@@ -158,15 +160,17 @@ class MCPSearchProductFull:
     def _register_tool(self):
         @self.tool_product_search.tool(
             name="product_search",
-            description=self._get_description(),
+            description=self.description,
         )
-        async def product_search(
+        async def product_search( 
             session_id: str,
             query: str | None = None,
             indications: list[str] | None = None,
             contraindications: list[str] | None = None,
             body_parts: list[str] | None = None,
         ) -> list[dict[str, Any]]:
+            logger.info(f"\n\nЗапрос на 'product_search':\n'session_id': {session_id},\n'query': \
+{query},\n'body_parts': {body_parts},\n'indications': {indications},\n'contraindications': {contraindications}\n")
             response = await retriever_product_hybrid_async(
                 channel_id=self.channel_id,
                 query=query,
@@ -174,6 +178,7 @@ class MCPSearchProductFull:
                 contraindications=contraindications,
                 body_parts=body_parts,
             )
+            logger.info(f"\n\nОтвет от 'product_search':\n{response}\n")
             insert_dialog_state(
                 session_id=session_id,
                 product_search={
@@ -192,3 +197,16 @@ class MCPSearchProductFull:
     def get_tool(self) -> FastMCP:
         """Возвращаем сам FastMCP инструмент для монтирования."""
         return self.tool_product_search
+
+    def get_description(self) -> FastMCP:
+        """Возвращаем сам FastMCP инструмент для монтирования."""
+        return self.description
+
+
+if __name__=="__main__":
+    mcp = MCPSearchProductFull(channel_id=5)
+    print(mcp.get_description())
+
+
+# cd /home/copilot_superuser/petrunin/zena/mcpserver
+# uv run python -m src.tools.class_product_search_full

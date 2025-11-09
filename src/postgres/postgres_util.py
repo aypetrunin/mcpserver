@@ -91,7 +91,7 @@ def select_key(channel_id: int) -> str | None:
                     "contraindications_key": data[2],
                 }
             else:
-                return None  # либо '', если нужен пустой результат
+                return {}
     finally:
         conn.close()
 

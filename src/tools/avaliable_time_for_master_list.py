@@ -61,7 +61,7 @@ async def avaliable_time_for_master(
     sequences, available_sequences = await avaliable_time_for_master_list_async(
         date = date,
         service_id = list_products_id,
-        servise_name = list_products_name,
+        service_name = list_products_name,
     )
     
     print(f"responce: {sequences}")

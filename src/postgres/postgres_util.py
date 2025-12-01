@@ -5,25 +5,24 @@
 """
 
 import json
-from typing import Dict
+from typing import Dict, Any
 
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from ..qdrant.retriever_common import POSTGRES_CONFIG
+from ..qdrant.retriever_common import POSTGRES_CONFIG  # type: ignore
 
 
 def insert_dialog_state(
     session_id: str,
     name: str | None = None,
-    product_id: Dict | None = None,
-    product_search: Dict | None = None,
-    product_type: Dict | None = None,
-    body_parts: Dict | None = None,
-    record_time: Dict | None = None,
-    avaliable_time: Dict | None = None,
-    status: str | None = None,
-    recommendations: str | None = None,
+    product_id: dict[str, Any] | None = None,
+    product_search: dict[str, Any] | None = None,
+    product_type: dict[str, Any] | None = None,
+    body_parts: dict[str, Any] | None = None,
+    record_time: dict[str, Any] | None = None,
+    avaliable_time: dict[str, Any] | None = None,
+    recommendations: dict[str, Any] | None = None,
 ) -> int | None:
     """Функция записи в таблицу dialog_state вспомогательной информации."""
     conn = psycopg2.connect(**POSTGRES_CONFIG)
@@ -44,9 +43,7 @@ def insert_dialog_state(
                 data["record_time"] = record_time
             if avaliable_time is not None:
                 data["avaliable_time"] = avaliable_time
-            if status is not None:
-                data["status"] = status
-            if status is not None:
+            if recommendations is not None:
                 data["recommendations"] = recommendations
 
             if not data:
@@ -75,7 +72,7 @@ def insert_dialog_state(
         conn.close()
 
 
-def select_key(channel_id: int) -> str | None:
+def select_key(channel_id: int) -> dict[str, Any]:
     """Функция выбора уникальных ключей из view для данного канала."""
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     try:
@@ -148,7 +145,7 @@ def create_or_replace_view() -> None:
         conn.close()
 
 
-def create_product_service_view():
+def create_product_service_view() -> None:
     """Функция создания или замены представления product_service_view в базе."""
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)  # Для выполнения DDL вне транзакций

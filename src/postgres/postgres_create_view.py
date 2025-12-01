@@ -6,7 +6,7 @@ from typing import Dict
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from ..qdrant.retriever_common import POSTGRES_CONFIG
+from ..qdrant.retriever_common import POSTGRES_CONFIG  # type: ignore
 
 
 def create_view_channel_services_keys() -> None:
@@ -58,7 +58,7 @@ def create_view_channel_services_keys() -> None:
         conn.close()
 
 
-def create_product_service_view():
+def create_product_service_view() -> None:
     """Функция создания или замены представления product_service_view в базе."""
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)  # Для выполнения DDL вне транзакций

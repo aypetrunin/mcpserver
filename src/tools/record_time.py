@@ -65,7 +65,7 @@ async def record_time(
                     "master_id": master_id,
                 }
             },
-            status="postrecord",
+            name="postrecord",
         )
 
     return responce

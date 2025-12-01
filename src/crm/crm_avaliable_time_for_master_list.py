@@ -4,11 +4,13 @@
 """
 
 import asyncio
-from datetime import datetime
 import logging
-from typing import Any, Dict, List
-
 import httpx
+
+from datetime import datetime
+from typing import Any
+
+
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -34,10 +36,10 @@ MAX_RETRIES = 3
 async def avaliable_time_for_master_list_async(
     date: str,
     service_id: str,
-    servise_name: str = None,
+    service_name: str,
     count_slots: int = 30,
     timeout: float = TIMEOUT_SECONDS,
-) -> List[Dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Асинхронный запрос на получение доступных слотов по мастерам для указанной услуги.
 
     :param date: Дата в формате 'YYYY-MM-DD' (на будущее — может использоваться на бэкенде).
@@ -50,7 +52,7 @@ async def avaliable_time_for_master_list_async(
 
     if not service_id or not isinstance(service_id, str):
         logger.warning("Invalid service_id provided: %s", service_id)
-        return []
+        return [], []
 
     url = f"{BASE_URL}/appointments/yclients/product"  # Убраны пробелы!
 
@@ -77,7 +79,7 @@ async def avaliable_time_for_master_list_async(
     service_obj = resp_json.get("result", {}).get("service")
     if service_obj and isinstance(service_obj, dict):
         staff_list = service_obj.get("staff", [])
-        product_name = servise_name.split(',')[0]
+        product_name = service_name.split(',')[0]
         sequences_list = [
             {
                 "master_name": item["name"],
@@ -90,7 +92,7 @@ async def avaliable_time_for_master_list_async(
             for item in staff_list if isinstance(item.get("dates"), list)
         ]
         sequences_list = filter_sequences_list(product_name, sequences_list)
-        return sequences_list, 'one'
+        return sequences_list, []
 
     # Комплекс
     resp_json_modify  = update_services_in_sequences(resp_json)
@@ -108,7 +110,8 @@ async def avaliable_time_for_master_list_async(
     return [], []
 
 
-def update_services_in_sequences(data):
+def update_services_in_sequences(data: dict[str, Any]) -> dict[str, Any]:
+    """Функция замены/согласования в словаре услуг названий на используемые в dikidi."""
     replacements = {
         '2950601': {'master_id': '881127', 'master_name': 'Термотерапия'},
         '2950597': {'master_id': '864147', 'master_name': 'Прессотерапия'},
@@ -124,7 +127,8 @@ def update_services_in_sequences(data):
                 step['master_name'] = replacements[rid]['master_name']
     return data
 
-def avaliable_sequences_short(available_sequences):
+def avaliable_sequences_short(available_sequences: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Получение из полного списка данных укороченного списка достаточного для записи на услуги."""
     result = [
         {
             'sequence_id': seq['sequence_id'],
@@ -143,7 +147,11 @@ def avaliable_sequences_short(available_sequences):
     ]
     return result
 
-def filter_sequences_list(name: str, sequences_list: list[dict]):
+def filter_sequences_list(
+    name: str,
+    sequences_list: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Функция фильтации списка по названию услуги."""
     map_name = {
         "Прессотерапия": "Прессотерапия",
         "Роликовый массажер": "Ролик",
@@ -159,14 +167,15 @@ def filter_sequences_list(name: str, sequences_list: list[dict]):
 if __name__ == "__main__":
     """Тестовый пример работы функции."""
 
-    async def main():
+    async def main() -> None:
         """Тестовый пример работы функции."""
         date = "2025-11-29"
         # service_id = "1-19501163"
         service_id = "7-2950601"
+        service_name = "7-2950601"
         # service_id = "7-2950601, 7-2950603"
         logger.info("Доступные мастера:")
-        result = await avaliable_time_for_master_list_async(date=date, service_id=service_id)
+        result = await avaliable_time_for_master_list_async(date=date, service_id=service_id, service_name=service_name)
         logger.info(result)
 
     asyncio.run(main())

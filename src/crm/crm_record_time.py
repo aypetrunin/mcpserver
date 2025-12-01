@@ -167,7 +167,7 @@ async def record_time_async(
 if __name__ == "__main__":
     """Тестовый пример работы функции."""
 
-    async def main():
+    async def main() -> None:
         """Тестовый пример работы функции."""
         url = "https://httpservice.ai2b.pro/appointments/yclients/create_booking"  # или твой боевой URL
         result = await record_time_async(

@@ -113,7 +113,7 @@ async def avaliable_time_for_master_async(
 if __name__ == "__main__":
     """Тестовый пример работы функции."""
 
-    async def main():
+    async def main()->None:
         """Тестовый пример работы функции."""
         date = "2025-11-29"
         # service_id = "1-19501163"

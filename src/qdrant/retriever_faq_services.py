@@ -62,8 +62,11 @@ async def points_to_dict(
     fields = DATABASE_FIELDS.get(database_name, [])
     result = []
     for point in points:
+        if point.payload is None:  # ← Защита от None
+            continue
+        
         payload = {field: point.payload.get(field) for field in fields}
-        payload["id"] = point.id  # добавляем ID точки
+        payload["id"] = point.id
         result.append(payload)
     return result
 
@@ -97,7 +100,7 @@ async def retriver_hybrid_async(
         Список словарей с найденными объектами из Qdrant.
     """
 
-    async def _retriever_logic():
+    async def _retriever_logic() -> list[dict[str, Any]]:
         # -------------------------------------------------------
         # 1️⃣ Генерация dense-вектора через OpenAI Ada
         # -------------------------------------------------------
@@ -172,7 +175,7 @@ async def retriver_hybrid_async(
 # ===============================================================
 if __name__ == "__main__":
 
-    async def main():
+    async def main() -> None:
         """Тестовый пример.
 
         Тестовый пример поиска в двух коллекциях Qdrant:

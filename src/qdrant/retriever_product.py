@@ -2,9 +2,11 @@
 
 import asyncio
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
+from qdrant_client.models import ScoredPoint, PointStruct
 from qdrant_client import models
+from qdrant_client.models import FieldCondition
 
 from .retriever_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
@@ -21,7 +23,7 @@ COLLECTION_NAME = os.getenv(
 
 
 # -------------------- Преобразование точек --------------------
-def points_to_list(points) -> List[Dict[str, Any]]:
+def points_to_list(points: Union[List[ScoredPoint], List[PointStruct]]) -> list[dict[str, Any]]:
     """Преобразует результаты запроса Qdrant в список словарей продукта.
 
     Аргументы:
@@ -37,28 +39,23 @@ def points_to_list(points) -> List[Dict[str, Any]]:
     result = []
     for p in points:
         pl = p.payload  # payload — это словарь, сохранённый в точке Qdrant
-        price_min, price_max = pl.get("price_min"), pl.get("price_max")
+        if not pl:  # ← Проверка на None/пустой payload
+            continue
 
-        # Формируем карточку продукта в удобном формате
-        result.append(
-            {
-                "product_id": pl.get("product_id"),
-                "product_name": pl.get("product_name"),
-                # "product_type": pl.get("product_type"),
-                # "body_parts": pl.get("body_parts"),
-                # "indications_key": pl.get("indications_key"),
-                # "contraindications_key": pl.get("contraindications_key"),
-                "duration": pl.get("duration"),
-                # Форматируем цену как диапазон, если min != max
-                "price": (
-                    f"{price_min} руб."
-                    if price_min == price_max
-                    else f"{price_min} - {price_max} руб."
-                )
-                if price_min and price_max
-                else None,
-            }
-        )
+        price_min = pl.get("price_min")
+        price_max = pl.get("price_max")
+
+        # Формируем карточку продукта
+        result.append({
+            "product_id": pl.get("product_id"),
+            "product_name": pl.get("product_name"),
+            "duration": pl.get("duration"),
+            "price": (
+                f"{price_min} руб."
+                if price_min == price_max
+                else f"{price_min} - {price_max} руб."
+            ) if price_min is not None and price_max is not None and price_min == price_max else None,
+        })
     return result
 
 
@@ -84,7 +81,10 @@ def make_filter(
     Возвращает:
         models.Filter или None, если фильтры не заданы
     """
-    must, must_not, should = [], [], []
+    # В функции make_filter:
+    must: list[FieldCondition] = []
+    must_not: list[FieldCondition] = []
+    should: list[FieldCondition] = [] 
 
     # --- Фильтрация по каналу ---
     if channel_id:
@@ -139,7 +139,9 @@ def make_filter(
     # Возвращаем собранный фильтр, если есть условия
     if any([must, must_not, should]):
         return models.Filter(
-            must=must or None, must_not=must_not or None, should=should or None
+            must=must if must else None,  # type: ignore[arg-type]
+            must_not=must_not if must_not else None,  # type: ignore[arg-type]
+            should=should if should else None,  # type: ignore[arg-type]
         )
     return None
 
@@ -164,7 +166,7 @@ async def retriever_product_async(
         indications=indications, contraindications=contraindications
     )
 
-    async def _logic():
+    async def _logic() -> list[dict[str, Any]]:
         if query:
             # Создаём dense-вектор OpenAI Ada
             query_vector = (await ada_embeddings([query]))[0]
@@ -224,7 +226,7 @@ async def retriever_product_hybrid_async(
         use_should=True,
     )
 
-    async def _logic():
+    async def _logic() -> list[dict[str, Any]]:
         if query:
             # --- Генерация векторов ---
             qv_ada = (await ada_embeddings([query]))[0]
@@ -293,7 +295,7 @@ async def retriever_product_hybrid_mult_async(
         product_type=product_type,
     )
 
-    async def _logic():
+    async def _logic() -> list[dict[str, Any]]:
         if query:
             qv_ada = (await ada_embeddings([query]))[0]
             qv_bm25 = next(bm25_embedding_model.query_embed(query))
@@ -358,13 +360,13 @@ async def retriever_product_hybrid_mult_async(
 # -------------------- Тестовый запуск --------------------
 if __name__ == "__main__":
 
-    async def main():
+    async def main() -> None:
         """Пример тестового вызова гибридного поиска.
 
         Ищет массажные услуги по фильтрам и запросу.
         """
         results = await retriever_product_hybrid_async(
-            channel_id="1",
+            channel_id=1,
             # query="лпг массаж",
             indications=["отечность"],
             # contraindications=["высокое"],

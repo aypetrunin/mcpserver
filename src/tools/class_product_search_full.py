@@ -3,10 +3,11 @@
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.tools import FunctionTool
 
-from ..postgres.postgres_util import insert_dialog_state, select_key
-from ..qdrant.retriever_product import retriever_product_hybrid_async
-from ..qdrant.retriever_common import logger
+from ..postgres.postgres_util import insert_dialog_state, select_key  # type: ignore
+from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: ignore
+from ..qdrant.retriever_common import logger  # type: ignore
 
 
 class MCPSearchProductFull:
@@ -14,10 +15,10 @@ class MCPSearchProductFull:
 
     def __init__(self, channel_id: str) -> None:
         """Инициализация экземпляра класса mcp-сервера."""
-        self.channel_id = channel_id
-        self.key = select_key(channel_id=int(channel_id))
-        self.description = self._set_description()
-        self.tool_product_search = FastMCP(name="product_search")
+        self.channel_id: str = channel_id
+        self.key: dict[str, Any] = select_key(channel_id=int(channel_id))
+        self.description: str = self._set_description()
+        self.tool_product_search: FastMCP = FastMCP(name="product_search")
         self._register_tool()
 
     def _set_description(self) -> str:
@@ -143,7 +144,7 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
     """
         return description
 
-    def _register_tool(self):
+    def _register_tool(self) -> FunctionTool:
         @self.tool_product_search.tool(
             name="product_search",
             description=self.description,
@@ -179,18 +180,19 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
                 name="selecting",
             )
             return response
+        return product_search
 
     def get_tool(self) -> FastMCP:
         """Возвращаем сам FastMCP инструмент для монтирования."""
         return self.tool_product_search
 
-    def get_description(self) -> FastMCP:
+    def get_description(self) -> str:
         """Возвращаем сам FastMCP инструмент для монтирования."""
         return self.description
 
 
 if __name__=="__main__":
-    mcp = MCPSearchProductFull(channel_id=5)
+    mcp = MCPSearchProductFull(channel_id='5')
     print(mcp.get_description())
 
 

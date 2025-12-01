@@ -1,8 +1,9 @@
 """MCP-сервер фиксирующий выбранную клиентом услугу в базе данных."""
 
+from typing import Any
 from fastmcp import FastMCP
 
-from ..postgres.postgres_util import insert_dialog_state
+from ..postgres.postgres_util import insert_dialog_state  # type: ignore
 
 tool_record_product_id = FastMCP(name="record_product_id")
 
@@ -24,16 +25,21 @@ tool_record_product_id = FastMCP(name="record_product_id")
     ),
 )
 async def record_product_id(
-    session_id: str, product_id: str, product_name: str
-) -> list[dict]:
+    session_id: str,
+    product_id: str,
+    product_name: str
+) -> list[dict[str, Any]]:
     """Функция фиксации выбранной услуги клиентом."""
     try:
         insert_dialog_state(
             session_id=session_id,
-            product_id={"product_id": product_id, "product_name": product_name},
+            product_id={
+                "product_id": product_id,
+                "product_name": product_name
+            },
             name="record",
         )
-    except Exception:
-        raise ("Ошибка 'record_product_id - {e}")
+    except Exception as e:
+        raise RuntimeError(f"Ошибка record_product_id: {e}")
 
     return [{"product_id": product_id, "product_name": product_name}]

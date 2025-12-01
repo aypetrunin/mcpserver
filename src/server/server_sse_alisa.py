@@ -4,15 +4,15 @@ import os
 
 from fastmcp import FastMCP
 
-from ..tools.avaliable_time_for_master import tool_avaliable_time_for_master
-from ..tools.class_product_search_full import MCPSearchProductFull
-from ..tools.faq import tool_faq
-from ..tools.product_id import tool_record_product_id
-from ..tools.record_time import tool_record_time
-from ..tools.services import tool_services
+from ..tools.avaliable_time_for_master import tool_avaliable_time_for_master  # type: ignore
+from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
+from ..tools.faq import tool_faq  # type: ignore
+from ..tools.product_id import tool_record_product_id  # type: ignore
+from ..tools.record_time import tool_record_time  # type: ignore
+from ..tools.services import tool_services  # type: ignore
 
-MCP_PORT_ALISA = int(os.getenv("MCP_PORT_ALISA"))  # 5001
-CHANNEL_ID_ALISA = int(os.getenv("CHANNEL_ID_ALISA"))  # 1
+MCP_PORT_ALISA = os.getenv("MCP_PORT_ALISA")  # 5001
+CHANNEL_ID_ALISA = os.getenv("CHANNEL_ID_ALISA")  # 1
 
 tool_product_search = MCPSearchProductFull(channel_id=CHANNEL_ID_ALISA).get_tool()
 

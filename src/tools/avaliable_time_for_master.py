@@ -1,9 +1,10 @@
 """MCP-сервер для поиска свободных слотов по мастерам."""
 
+from typing import Any
 from fastmcp import FastMCP
 
-from ..crm.crm_avaliable_time_for_master import avaliable_time_for_master_async
-from ..postgres.postgres_util import insert_dialog_state
+from ..crm.crm_avaliable_time_for_master import avaliable_time_for_master_async  # type: ignore
+from ..postgres.postgres_util import insert_dialog_state  # type: ignore
 
 tool_avaliable_time_for_master = FastMCP(name="avaliable_time_for_master")
 
@@ -31,7 +32,7 @@ tool_avaliable_time_for_master = FastMCP(name="avaliable_time_for_master")
 )
 async def available_time_for_master(
     session_id: str, date: str, product_id: str
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Функция поска свободных слотов."""
     responce = await avaliable_time_for_master_async(date, product_id)
 

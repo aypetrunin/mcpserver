@@ -4,10 +4,8 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from ..qdrant.retriever_faq_services import (
-    QDRANT_COLLECTION_SERVICES,
-    retriver_hybrid_async,
-)
+from ..qdrant.retriever_faq_services import QDRANT_COLLECTION_SERVICES  # type: ignore
+from ..qdrant.retriever_faq_services import retriver_hybrid_async  # type: ignore
 
 tool_services = FastMCP(name="services")
 
@@ -36,7 +34,7 @@ tool_services = FastMCP(name="services")
 )
 async def services(
     query: str,
-    channel_id: int = None,
+    channel_id: int,
 ) -> list[dict[str, Any]]:
     """Функция поиска информации по типам услуг."""
     return await retriver_hybrid_async(

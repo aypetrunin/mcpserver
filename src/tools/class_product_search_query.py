@@ -1,12 +1,13 @@
 """Универсальный клас создания mcp-сервера поиска услуг."""
 
 from typing import Any
-
 from fastmcp import FastMCP
+from fastmcp.tools import FunctionTool
 
-from ..postgres.postgres_util import insert_dialog_state
-from ..qdrant.retriever_product import retriever_product_hybrid_async
-from ..qdrant.retriever_common import logger
+from ..postgres.postgres_util import insert_dialog_state  # type: ignore
+from ..qdrant.retriever_common import logger  # type: ignore
+from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: ignore
+
 
 
 class MCPSearchProductQuery:
@@ -14,12 +15,18 @@ class MCPSearchProductQuery:
 
     def __init__(self, channel_id: str) -> None:
         """Инициализация экземпляра класса mcp-сервера."""
-        self.channel_id = channel_id
-        self.description = self._set_description()
-        self.tool_product_search = FastMCP(name="product_search")
+        self.channel_id: str = channel_id
+        self.description:str = self._set_description()
+        self.tool_product_search: FastMCP = FastMCP(name="product_search")
         self._register_tool()
 
-    def _set_description(self):
+    def get_description(self) -> str:
+        """Функция возвращает описание для созданного инструмента."""
+        return self.description
+
+    def _set_description(self) -> str:
+        """Функция делает описание для создаваемого инструмента."""
+        
         description = """
             Retrieve products based on query.
 
@@ -37,16 +44,12 @@ class MCPSearchProductQuery:
             """
         return description
 
-    def get_description(self):
-        return self.description
-
-    def _register_tool(self):
+    def _register_tool(self) -> FunctionTool:
         @self.tool_product_search.tool(
             name="product_search",
             description=self.description,
         )
         async def product_search(
-            channel_id: str,
             session_id: str,
             query: str,
         ) -> list[dict[str, Any]]:
@@ -54,7 +57,7 @@ class MCPSearchProductQuery:
             response = await retriever_product_hybrid_async(
                 channel_id=self.channel_id,
                 query=query,
-            )
+            ) 
             logger.info(f"\n\nОтвет от 'product_search':\n{response}\n")
             insert_dialog_state(
                 session_id=session_id,
@@ -65,6 +68,7 @@ class MCPSearchProductQuery:
                 name="selecting",
             )
             return response
+        return product_search
 
     def get_tool(self) -> FastMCP:
         """Возвращаем сам FastMCP инструмент для монтирования."""
@@ -72,7 +76,7 @@ class MCPSearchProductQuery:
 
 
 if __name__=="__main__":
-    mcp = MCPSearchProductQuery(channel_id=1)
+    mcp = MCPSearchProductQuery(channel_id='1')
     print(mcp.get_description())
 
 

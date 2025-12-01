@@ -1,11 +1,11 @@
 """MCP-сервер для поиска ответов на FAQ."""
 
+from typing import Any
 from fastmcp import FastMCP
 
-from ..qdrant.retriever_faq_services import (
-    QDRANT_COLLECTION_FAQ,
-    retriver_hybrid_async,
-)
+from ..qdrant.retriever_faq_services import QDRANT_COLLECTION_FAQ  # type: ignore
+from ..qdrant.retriever_faq_services import retriver_hybrid_async  # type: ignore
+
 
 tool_faq = FastMCP(name="faq")
 
@@ -35,8 +35,8 @@ tool_faq = FastMCP(name="faq")
 )
 async def faq(
     query: str,
-    channel_id: int = None,
-) -> list[dict]:
+    channel_id: int,
+) -> list[dict[str, Any]]:
     """Функция поска ответов на FAQ."""
     return await retriver_hybrid_async(
         query=query,

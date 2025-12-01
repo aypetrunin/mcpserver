@@ -4,11 +4,11 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from ..postgres.postgres_util import insert_dialog_state
-from ..qdrant.retriever_faq_services import (
-    QDRANT_COLLECTION_SERVICES,
-    retriver_hybrid_async,
-)
+from ..postgres.postgres_util import insert_dialog_state  # type: ignore
+from ..qdrant.retriever_faq_services import retriver_hybrid_async  # type: ignore
+from ..qdrant.retriever_faq_services import QDRANT_COLLECTION_SERVICES  # type: ignore
+
+
 
 tool_recommendations = FastMCP(name="recommendations")
 
@@ -31,7 +31,7 @@ tool_recommendations = FastMCP(name="recommendations")
 async def recommendations(
     session_id: str,
     product_name: str,
-    channel_id: int = None,
+    channel_id: int,
 ) -> list[dict[str, Any]]:
     """Получение рекомендаций по выбранной услуге через поиск в таблице services."""
     try:

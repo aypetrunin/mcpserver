@@ -4,8 +4,8 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from ..crm.crm_record_time import record_time_async
-from ..postgres.postgres_util import insert_dialog_state
+from ..crm.crm_record_time import record_time_async  # type: ignore
+from ..postgres.postgres_util import insert_dialog_state  # type: ignore
 
 tool_record_time = FastMCP(name="record_time")
 

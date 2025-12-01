@@ -35,9 +35,7 @@ class MCPSearchProductFull:
             "indications": ["отечность"],
             "contraindications": ["варикоз"],
             "body_parts": ["ноги"],
-            "product_type": [],
-            "session_id": "1-232327692",
-            "channel_id": "2"
+            "session_id": "1-232327692"
         }}
 
     Пример 2: Клиент: "У меня редкие волосы на бровях, что можете предложить?"
@@ -47,9 +45,7 @@ class MCPSearchProductFull:
             "indications": ["редкие"],
             "contraindications": [],
             "body_parts": ["брови, волосы"],
-            "product_type": [],,
-            "session_id": "1-232327692",
-            "channel_id": "2"
+            "session_id": "1-232327692"
         }}
 
     Пример 3: Клиент: "Что у Вас есть для лица?", "А что есть для лица?", "Что можете предложить для лица", "Нужно что-то сделать с лицом"
@@ -59,9 +55,7 @@ class MCPSearchProductFull:
             "indications": [],
             "contraindications": [],
             "body_parts": ["лицо"],
-            "product_type": [],,
             "session_id": "1-232327692",
-            "channel_id": "2"
         }}
 
     Пример 4: Клиент: "Можно записаться на консультацию?", "У вас есть консультация?"
@@ -69,10 +63,9 @@ class MCPSearchProductFull:
         {{
             "query": "консультация",
             "indications": [],
-            "contraindications": [],
+            "": [],
             "body_parts": [],,
             "session_id": "1-232327692",
-            "channel_id": "2"
         }}
 
     Пример 5: Клиент: "Есть ли услуги для коррекции фигуры?"
@@ -84,7 +77,6 @@ class MCPSearchProductFull:
             "body_parts": [],
             "product_type": [],,
             "session_id": "1-232327692",
-            "channel_id": "2"
         }}
 
     Пример 6: Клиент: "Нужна эпиляция волос подмышками?"
@@ -95,7 +87,6 @@ class MCPSearchProductFull:
             "contraindications": [],
             "body_parts": ["подмышки"],,
             "session_id": "1-232327692",
-            "channel_id": "2"
         }}
 
     Пример 7: Клиент: "У Вас есть акции на услуги?"
@@ -106,7 +97,6 @@ class MCPSearchProductFull:
             "contraindications": [],
             "body_parts": [],
             "session_id": "1-232327692",
-            "channel_id": "2"
         }}
     
     Пример 8: Клиент: "Какие есть комплексы для коррекции фигуры"
@@ -116,8 +106,7 @@ class MCPSearchProductFull:
             "indications": [коррекция фигуры],
             "contraindications": [],
             "body_parts": [],
-            "session_id": "1-232327692",,
-            "channel_id": "2"
+            "session_id": "1-232327692",
             
         }}
 
@@ -129,7 +118,6 @@ class MCPSearchProductFull:
             "contraindications": [],
             "body_parts": [],
             "session_id": "1-232327692",
-            "channel_id": "2"
         }}
 
     Args:
@@ -146,8 +134,6 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
 
         session_id(str): id dialog session.
 
-        channel_id(str): id channal company. 
-
     Returns:
         List[dict]: A list of services, each represented by a dictionary with detailed metadata:
             - product_id (str): Идентификатор продукта.
@@ -162,7 +148,7 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
             name="product_search",
             description=self.description,
         )
-        async def product_search( 
+        async def product_search(
             session_id: str,
             query: str | None = None,
             indications: list[str] | None = None,

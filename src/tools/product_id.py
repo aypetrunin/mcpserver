@@ -12,7 +12,7 @@ tool_record_product_id = FastMCP(name="record_product_id")
     description=(
         """
         Подтверждение/выбор клиентом нужной услуги.
-        Пример: Выбираю LPG-массаж. Запишите на эпиляцию ног. Хочу стрижку моднльную.
+        Пример: Выбираю LPG-массаж. Запишите на эпиляцию ног. Хочу стрижку модельную.
                  
         **Args:**\n
         - session_id(str): id dialog session. **Обязательный параметр.**\n
@@ -25,7 +25,7 @@ tool_record_product_id = FastMCP(name="record_product_id")
 )
 async def record_product_id(
     session_id: str, product_id: str, product_name: str
-) -> bool:
+) -> list[dict]:
     """Функция фиксации выбранной услуги клиентом."""
     try:
         insert_dialog_state(
@@ -36,4 +36,4 @@ async def record_product_id(
     except Exception:
         raise ("Ошибка 'record_product_id - {e}")
 
-    return True
+    return [{"product_id": product_id, "product_name": product_name}]

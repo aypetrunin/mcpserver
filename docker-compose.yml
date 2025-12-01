@@ -1,16 +1,18 @@
 services:
   mcpsrv:
-    container_name: zena_mcp_
+    container_name: zena_mcp_local
     build: .
-    image: zena_mcp_:latest
+    image: zena_mcp_local:latest
     env_file:
       - .env
     ports:
-      - "4011:4011"
-      - "4012:4012"
-      - "4015:4015"
-      - "4016:4016"
-      - "4017:4017"
+      - "5001:5001"
+      - "5002:5002"
+      - "5005:5005"
+      - "5006:5006"
+      - "5007:5007"
+      - "5017:5017"
+      - "5018:5018"
     volumes:
       - ./src:/app/src
       - ./pyproject.toml:/app/pyproject.toml

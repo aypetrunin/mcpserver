@@ -15,7 +15,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from ..crm.avaliable_time_for_master import avaliable_time_for_master_async
+from .crm_avaliable_time_for_master import avaliable_time_for_master_async
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
@@ -61,60 +61,61 @@ async def record_time_async(
     :return: dict — ответ сервера или сообщение об ошибке
     """
     payload = {
-        "staff_id": staff_id,
+        "staff_id": int(staff_id),
         "service_id": product_id,
         "date": date,
         "time": time,
-        "user_id": user_id,
+        "user_id": str(user_id),
         "channel_id": channel_id,
         "comment": comment,
         "notify_by_sms": notify_by_sms,
         "notify_by_email": notify_by_email,
     }
-
+    logger.info("===record_time_async===")
     requested_datetime = f"{date} {time}"
-    logger.debug(
-        "Preparing booking for service_id=%s at %s (staff_id=%s)",
+    logger.info(
+        "Подготовка бронирования для  service_id=%s at %s (staff_id=%s)",
         product_id,
         requested_datetime,
         staff_id,
     )
 
     # Проверка доступности времени
-    try:
-        available_slots = await avaliable_time_for_master_async(
-            date=date, service_id=product_id
-        )
-    except Exception as e:
-        logger.error(
-            "Failed to fetch available slots for service_id=%s: %s", product_id, e
-        )
-        return {"success": False, "error": "Не удалось проверить доступность времени"}
+    # try:
+    #     available_slots = await avaliable_time_for_master_async(
+    #         date=date, service_id=product_id
+    #     )
+    #     logger.info(f"available_slots: {available_slots}")
+    # except Exception as e:
+    #     logger.error(
+    #         "Не удалось получить доступные слоты для service_id=%s: %s", product_id, e
+    #     )
+    #     return {"success": False, "error": "Не удалось проверить доступность времени"}
 
-    master_slots = next(
-        (
-            m.get("master_slots", [])
-            for m in available_slots
-            if m.get("master_id") == staff_id
-        ),
-        [],
-    )
+    # master_slots = next(
+    #     (
+    #         m.get("master_slots", [])
+    #         for m in available_slots
+    #         if m.get("master_id") == staff_id
+    #     ),
+    #     [],
+    # )
 
-    if requested_datetime not in master_slots:
-        logger.warning(
-            f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}"
-        )
-        return {
-            "success": False,
-            "error": f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}",
-            "available_slots": master_slots,
-        }
+    # if requested_datetime not in master_slots:
+    #     logger.warning(
+    #         f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}"
+    #     )
+    #     return {
+    #         "success": False,
+    #         "error": f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}",
+    #         "available_slots": master_slots,
+    #     }
 
     # Отправка запроса на запись
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            logger.debug(
-                "Sending booking request to %s with payload=%s", endpoint_url, payload
+            logger.info(
+                "Отправка запроса на бронирование %s with payload=%s", endpoint_url, payload
             )
             response = await client.post(endpoint_url, json=payload)
             response.raise_for_status()
@@ -124,10 +125,10 @@ async def record_time_async(
             if (
                 isinstance(resp_json, dict)
                 and resp_json.get("success") is False
-                and resp_json.get("error") == "Unexpected status code: 400"
+                and resp_json.get("error") == "Неожиданный код статуса: 400"
             ):
-                logger.warning(
-                    "API bug detected while booking (400). Treating booking as successful. "
+                logger.info(
+                    "Обнаружена ошибка API при бронировании (400). Бронирование считается успешным. "
                     "Payload=%s, Response=%s",
                     payload,
                     resp_json,
@@ -138,17 +139,17 @@ async def record_time_async(
                 }
 
             logger.info(
-                "Booking successful for user_id=%s, service_id=%s", user_id, product_id
+                "Бронирование успешно выполнено для user_id=%s, service_id=%s", user_id, product_id
             )
             return resp_json
 
     except httpx.TimeoutException as e:
-        logger.error("Timeout while booking service_id=%s: %s", product_id, e)
+        logger.error("Таймаут при бронировании service_id=%s: %s", product_id, e)
         raise  # повторная попытка через tenacity
 
     except httpx.HTTPStatusError as e:
         logger.error(
-            "HTTP error %d while booking service_id=%s: %s",
+            "Ошибка HTTP %d при бронировании service_id=%s: %s",
             e.response.status_code,
             product_id,
             e,
@@ -157,7 +158,7 @@ async def record_time_async(
 
     except Exception as e:
         logger.exception(
-            "Unexpected error while booking service_id=%s: %s", product_id, e
+            "Неожиданная ошибка при бронировании service_id=%s: %s", product_id, e
         )
         return {"success": False, "error": "Неизвестная ошибка при записи"}
 

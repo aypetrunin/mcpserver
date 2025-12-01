@@ -21,7 +21,7 @@ RUN uv sync --frozen --no-dev
 RUN uv pip install --no-deps .
 
 # Открываем порт
-EXPOSE 4011 4012 4015 4016 4017
+EXPOSE 5001 5002 5005 5006 5007 5017 5018
 
 # Запуск
 CMD ["uv", "run", "python", "main.py"]

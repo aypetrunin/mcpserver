@@ -2,14 +2,14 @@
 
 from fastmcp import FastMCP
 
-from ..crm.avaliable_time_for_master import avaliable_time_for_master_async
+from ..crm.crm_avaliable_time_for_master import avaliable_time_for_master_async
 from ..postgres.postgres_util import insert_dialog_state
 
-tool_available_time_for_master = FastMCP(name="available_time_for_master")
+tool_avaliable_time_for_master = FastMCP(name="avaliable_time_for_master")
 
 
-@tool_available_time_for_master.tool(
-    name="available_time_for_master",
+@tool_avaliable_time_for_master.tool(
+    name="avaliable_time_for_master",
     description=(
         "Получение списка доступного времени для записи на выбранную услугу в указанный день.\n\n"
         "**Назначение:**\n"

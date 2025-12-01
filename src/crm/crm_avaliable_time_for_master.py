@@ -4,6 +4,7 @@
 """
 
 import asyncio
+from datetime import datetime
 import logging
 from typing import Any, Dict, List
 
@@ -44,6 +45,8 @@ async def avaliable_time_for_master_async(
     :param timeout: Таймаут запроса в секундах.
     :return: Список словарей с информацией о мастерах и их слотах.
     """
+    logger.info("===crm.avaliable_time_for_master_async===")
+    print("===crm.avaliable_time_for_master_async===")
     if not service_id or not isinstance(service_id, str):
         logger.warning("Invalid service_id provided: %s", service_id)
         return []
@@ -52,13 +55,17 @@ async def avaliable_time_for_master_async(
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            logger.debug("Sending request to %s with service_id=%s", url, service_id)
+            logger.info("Sending request to %s with service_id=%s", url, service_id)
             response = await client.post(
                 url=url,
                 json={"service_id": service_id, "base_date": date},
             )
             response.raise_for_status()
+            # print(f"type(response): {type(response)}")
+            # print(f"response: {response}")
             resp_json = response.json()
+            print(f"type(resp_json): {type(resp_json)}")
+            print(f"resp_json: {resp_json}")
 
     except httpx.TimeoutException as e:
         logger.error(
@@ -81,27 +88,25 @@ async def avaliable_time_for_master_async(
         logger.warning("API returned success=False for service_id=%s", service_id)
         return []
 
-    try:
-        staff_list = resp_json["result"]["service"]["staff"]
-    except KeyError:
-        logger.error("Unexpected response structure: %s", resp_json)
-        return []
+    result = resp_json.get("result") or {}
 
-    if staff_list is None:
-        return []
+    # Проверка на одиночную услугу с "service"
+    service_obj = result.get("service")
+    if service_obj and isinstance(service_obj, dict):
+        staff_list = service_obj.get("staff", [])
+        results = [
+            {
+                "master_name": item["name"],
+                "master_id": item["id"],
+                "master_slots": sorted( item.get("dates", []), key=lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M"))[:count_slots],
+            }
+            for item in staff_list
+            if isinstance(item.get("dates"), list)
+        ]
+        print(results)
+        return results
+    return []
 
-    results = [
-        {
-            "master_name": item["name"],
-            "master_id": item["id"],
-            "master_slots": item["dates"][:count_slots],
-        }
-        for item in staff_list
-        if "dates" in item and isinstance(item["dates"], list)
-    ]
-
-    logger.debug("Found %d masters for service_id=%s", len(results), service_id)
-    return results
 
 
 # Пример использования
@@ -110,10 +115,15 @@ if __name__ == "__main__":
 
     async def main():
         """Тестовый пример работы функции."""
-        date = "2025-10-20"
-        service_id = "1-20539533"
+        date = "2025-11-29"
+        # service_id = "1-19501163"
+        service_id = "7-2950601"
+        # service_id = "7-2950601, 7-2950603"
         logger.info("Доступные мастера:")
         result = await avaliable_time_for_master_async(date=date, service_id=service_id)
         logger.info(result)
 
     asyncio.run(main())
+
+# cd /home/copilot_superuser/petrunin/zena
+# uv run python -m mcpserver.src.crm.avaliable_time_for_master

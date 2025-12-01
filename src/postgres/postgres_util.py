@@ -23,6 +23,7 @@ def insert_dialog_state(
     record_time: Dict | None = None,
     avaliable_time: Dict | None = None,
     status: str | None = None,
+    recommendations: str | None = None,
 ) -> int | None:
     """Функция записи в таблицу dialog_state вспомогательной информации."""
     conn = psycopg2.connect(**POSTGRES_CONFIG)
@@ -45,6 +46,8 @@ def insert_dialog_state(
                 data["avaliable_time"] = avaliable_time
             if status is not None:
                 data["status"] = status
+            if status is not None:
+                data["recommendations"] = recommendations
 
             if not data:
                 # print("Нет данных для вставки.")

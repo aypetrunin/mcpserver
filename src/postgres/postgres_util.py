@@ -181,6 +181,46 @@ def create_product_service_view() -> None:
         conn.close()
 
 
+def read_secondary_article_by_primary(
+    primary_article: str,
+    primary_channel: int,
+    secondary_channel: int,
+) -> str | None:
+    """
+    Возвращает article связанного (secondary) товара
+    для primary_article.
+    Если связанного товара нет — возвращает None.
+    """
+    conn = psycopg2.connect(**POSTGRES_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    p_secondary.article
+                FROM products p_primary
+                LEFT JOIN products p_secondary
+                  ON p_primary.product_name = p_secondary.product_name
+                 AND p_secondary.channel_id = %s
+                WHERE p_primary.channel_id = %s
+                  AND p_primary.article = %s
+                LIMIT 1;
+                """,
+                (
+                    secondary_channel,
+                    primary_channel,
+                    primary_article,
+                ),
+            )
+
+            row = cur.fetchone()
+            if row is None:
+                return None
+
+            return row[0]
+    finally:
+        conn.close()
+
 
 if __name__ == "__main__":
     result = select_key(channel_id=1)

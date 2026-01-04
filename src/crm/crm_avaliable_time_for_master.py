@@ -64,8 +64,8 @@ async def avaliable_time_for_master_async(
             # print(f"type(response): {type(response)}")
             # print(f"response: {response}")
             resp_json = response.json()
-            print(f"type(resp_json): {type(resp_json)}")
-            print(f"resp_json: {resp_json}")
+            # print(f"type(resp_json): {type(resp_json)}")
+            # print(f"resp_json: {resp_json}")
 
     except httpx.TimeoutException as e:
         logger.error(
@@ -96,6 +96,7 @@ async def avaliable_time_for_master_async(
         staff_list = service_obj.get("staff", [])
         results = [
             {
+                "office_id": service_id.split('-')[0],
                 "master_name": item["name"],
                 "master_id": item["id"],
                 "master_slots": sorted( item.get("dates", []), key=lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M"))[:count_slots],

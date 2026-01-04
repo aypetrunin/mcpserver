@@ -54,7 +54,21 @@ async def avaliable_time_for_master_list_async(
         logger.warning("Invalid service_id provided: %s", service_id)
         return [], []
 
-    url = f"{BASE_URL}/appointments/yclients/product"  # Убраны пробелы!
+    try:
+        input_date = datetime.strptime(date, '%Y-%m-%d').date()
+    except ValueError:
+        logger.warning(f"Неверный формат даты: {date}. Ожидается 'YYYY-MM-DD'")
+        return [{"success": False, "error": f"Неверный формат даты: {date}. Ожидается 'YYYY-MM-DD'"}], []
+
+    today = datetime.now().date()
+    if input_date < today:
+        logger.warning("Ошибка в выборе даты. Нельзя записаться на прошедшее число: %s", date)
+        return [
+            {"success": False,
+             "error": f"Ошибка в выборе даты. Нельзя записаться на прошедшее число. Напомню, сегодня {today.strftime('%Y-%m-%d')}"}
+        ], []
+
+    url = f"{BASE_URL}/appointments/yclients/product"
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -92,6 +106,7 @@ async def avaliable_time_for_master_list_async(
             for item in staff_list if isinstance(item.get("dates"), list)
         ]
         sequences_list = filter_sequences_list(product_name, sequences_list)
+        sequences_list = filter_future_slots(sequences_list)
         return sequences_list, []
 
     # Комплекс
@@ -161,6 +176,30 @@ def filter_sequences_list(
     }
     filter = [item for item in sequences_list if item['master_name']==map_name.get(name)]
     return filter
+
+
+def filter_future_slots(
+    masters_data: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Фильтрует слоты мастеров, оставляя только будущие. НЕ изменяет исходные данные."""
+    now = datetime.now()
+    
+    result = []
+    for master in masters_data:
+        filtered_slots = [
+            slot for slot in master['master_slots']
+            if datetime.strptime(slot, '%Y-%m-%d %H:%M') > now
+        ]
+        
+        # Создаем новую структуру с отфильтрованными слотами
+        result.append({
+            "master_name": master["master_name"],
+            "master_id": master["master_id"],
+            "master_slots": filtered_slots  # Только будущие слоты
+        })
+
+    return result
+
 
 
 # Пример использования

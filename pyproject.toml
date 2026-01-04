@@ -41,6 +41,7 @@ dependencies = [
     "flake8-class-attributes-order>=0.3.0",
     "flake8-expression-complexity>=0.0.11",
     "flake8-cognitive-complexity>=0.1.0",
+    "python-dateutil>=2.9.0.post0",
 ]
 
 [dependency-groups]

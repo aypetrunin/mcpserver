@@ -13,6 +13,7 @@ services:
       - "5007:5007"
       - "5017:5017"
       - "5018:5018"
+      - "5020:5020"
     volumes:
       - ./src:/app/src
       - ./pyproject.toml:/app/pyproject.toml

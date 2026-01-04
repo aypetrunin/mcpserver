@@ -4,7 +4,9 @@ from typing import Any
 from fastmcp import FastMCP
 
 from ..crm.crm_avaliable_time_for_master import avaliable_time_for_master_async  # type: ignore
+from ..postgres.postgres_util import read_secondary_article_by_primary  # type: ignore
 from ..postgres.postgres_util import insert_dialog_state  # type: ignore
+
 
 tool_avaliable_time_for_master = FastMCP(name="avaliable_time_for_master")
 
@@ -24,6 +26,7 @@ tool_avaliable_time_for_master = FastMCP(name="avaliable_time_for_master")
         '- "Какие мастера могут выполнить услугу завтра."\n\n'
         "**Args:**\n"
         "- session_id(str): id dialog session. **Обязательный параметр.**\n"
+        "- office_id(str): id филиала. **Обязательный параметр.**\n"
         "- product_id (str): Идентификатор медицинской услуги. Обязательно две цифры разделенные дефисом. Пример формата: '1-232324'. **Обязательный параметр.**\n\n"
         "- date (str): Дата на которую хочет записатьсяклиент в формате DD.MM.YYYY-MM-DD . Пример: '2025-07-22' **Обязательный параметр.**\n"
         "**Returns:**\n"
@@ -31,9 +34,30 @@ tool_avaliable_time_for_master = FastMCP(name="avaliable_time_for_master")
     ),
 )
 async def available_time_for_master(
-    session_id: str, date: str, product_id: str
+    session_id: str,
+    office_id: str,
+    date: str,
+    product_id: str,
 ) -> list[dict[str, Any]]:
     """Функция поска свободных слотов."""
+    print("mcp_available_time_for_master")
+
+    print(f"office_id: {office_id}")
+    print(f"date: {date}")
+    print(f"product_id: {product_id}")
+
+    primary_channel = product_id.split('-')[0]
+    print(f"primary_channel: {primary_channel}")
+
+    if office_id != primary_channel:
+        product_id = read_secondary_article_by_primary(
+            primary_article=product_id,
+            primary_channel=primary_channel,
+            secondary_channel=office_id
+        )
+
+    print(f'avaliable_time_for_master_async (product_id: {product_id}, date: {date})')
+
     responce = await avaliable_time_for_master_async(date, product_id)
 
     insert_dialog_state(

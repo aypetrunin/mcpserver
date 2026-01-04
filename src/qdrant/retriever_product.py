@@ -226,6 +226,9 @@ async def retriever_product_hybrid_async(
         use_should=True,
     )
 
+    logger.info(f"===retriever_product_hybrid_async===")
+    logger.info(f"query_filter: {query_filter}")
+
     async def _logic() -> list[dict[str, Any]]:
         if query:
             # --- Генерация векторов ---

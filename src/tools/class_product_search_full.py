@@ -24,9 +24,9 @@ class MCPSearchProductFull:
     def _set_description(self) -> str:
         description = f"""
     Retrieve.
-
-    Retrieve products based on query and optional indications, contraindications, body parts and product_type.
-    Follow the lists exactly when generating a search query by parameters: indications, contraindications, body parts and product_type.
+ 
+    Retrieve products based on query and optional indications, contraindications, body parts.
+    Follow the lists exactly when generating a search query by parameters: indications, contraindications, body parts.
     Pick only one similar symptoms or cosmetic needs for one indication or contraindication.
 
     Пример 1: Клиент: "Мне нужен массаж чтобы убрать отечность ног, но у меня варикозная болезнь"
@@ -45,7 +45,7 @@ class MCPSearchProductFull:
             "query": "",
             "indications": ["редкие"],
             "contraindications": [],
-            "body_parts": ["брови, волосы"],
+            "body_parts": ["брови", "волосы"],
             "session_id": "1-232327692"
         }}
 
@@ -64,8 +64,8 @@ class MCPSearchProductFull:
         {{
             "query": "консультация",
             "indications": [],
-            "": [],
-            "body_parts": [],,
+            "contraindications": [],
+            "body_parts": [],
             "session_id": "1-232327692",
         }}
 
@@ -76,7 +76,6 @@ class MCPSearchProductFull:
             "indications": ["коррекция фигуры"],
             "contraindications": [],
             "body_parts": [],
-            "product_type": [],,
             "session_id": "1-232327692",
         }}
 
@@ -104,7 +103,7 @@ class MCPSearchProductFull:
         Вход: query_search = 
         {{
             "query": "комплексы",
-            "indications": [коррекция фигуры],
+            "indications": ["коррекция фигуры"],
             "contraindications": [],
             "body_parts": [],
             "session_id": "1-232327692",
@@ -146,7 +145,7 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
 
     def _register_tool(self) -> FunctionTool:
         @self.tool_product_search.tool(
-            name="product_search",
+            name=f"product_search",
             description=self.description,
         )
         async def product_search(
@@ -156,8 +155,9 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
             contraindications: list[str] | None = None,
             body_parts: list[str] | None = None,
         ) -> list[dict[str, Any]]:
-            logger.info(f"\n\nЗапрос на 'product_search':\n'session_id': {session_id},\n'query': \
+            logger.info(f"\n\n channel_id: {self.channel_id}. Запрос на 'product_search':\n'session_id': {session_id},\n'query': \
 {query},\n'body_parts': {body_parts},\n'indications': {indications},\n'contraindications': {contraindications}\n")
+            
             response = await retriever_product_hybrid_async(
                 channel_id=self.channel_id,
                 query=query,
@@ -165,7 +165,9 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
                 contraindications=contraindications,
                 body_parts=body_parts,
             )
+            logger.info(f"self: {self}")
             logger.info(f"\n\nОтвет от 'product_search':\n{response}\n")
+
             insert_dialog_state(
                 session_id=session_id,
                 product_search={
@@ -179,16 +181,24 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
                 },
                 name="selecting",
             )
-            return response
+
+            return response 
+
         return product_search
 
     def get_tool(self) -> FastMCP:
         """Возвращаем сам FastMCP инструмент для монтирования."""
+        print(f"self.channel_id: {self.channel_id}")
+        print(f"self: {self}")
         return self.tool_product_search
 
     def get_description(self) -> str:
         """Возвращаем сам FastMCP инструмент для монтирования."""
         return self.description
+
+
+def build_product_search_tool(channel_id: str) -> FastMCP:
+    return MCPSearchProductFull(channel_id=channel_id).get_tool()
 
 
 if __name__=="__main__":

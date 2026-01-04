@@ -35,11 +35,11 @@ tool_faq = FastMCP(name="faq")
 )
 async def faq(
     query: str,
-    channel_id: int,
+    channel_id: str,
 ) -> list[dict[str, Any]]:
     """Функция поска ответов на FAQ."""
     return await retriver_hybrid_async(
         query=query,
-        channel_id=channel_id,
+        channel_id=int(channel_id),
         database_name=QDRANT_COLLECTION_FAQ,
     )

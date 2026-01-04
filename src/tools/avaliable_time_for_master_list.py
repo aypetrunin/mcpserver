@@ -46,12 +46,12 @@ tool_avaliable_time_for_master_list = FastMCP(name="avaliable_time_for_master_li
         "- product_name(list[str}): Список названий медицинских услуг. **Обязательный параметр.**\n\n"
         "- date (str): Дата на которую хочет записатьсяклиент в формате DD.MM.YYYY-MM-DD . Пример: '2025-07-22' **Обязательный параметр.**\n"
         "**Returns:**\n"
-        "list[dict]: Список доступных слотов на услугу в формате DD.MM.YYYY-MM-DD  по мастерам [{'master_name': 'Кузнецова Кристина Александровна', 'master_id': 4216657, 'master_slots': ['2025-09-26 9:00', '2025-09-26 10:00', '2025-09-26 10:30']}]"
+        "tuple[list[dict], list[dict]]: Список доступных слотов на услугу в формате DD.MM.YYYY-MM-DD  по мастерам [{'master_name': 'Кузнецова Кристина Александровна', 'master_id': 4216657, 'master_slots': ['2025-09-26 9:00', '2025-09-26 10:00', '2025-09-26 10:30']}], []"
     ),
 )
 async def avaliable_time_for_master(
     session_id: str, date: str, product_id: list[str], product_name: list[str]
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict], list[dict]]:
     """Функция поска свободных слотов."""
     print("=======mcp_available_time_for_master_list===========")
     list_products_id = ', '.join(product_id)
@@ -65,8 +65,8 @@ async def avaliable_time_for_master(
         service_name = list_products_name,
     )
     
-    print(f"responce: {sequences}")
-    print(f"responce: {available_sequences}")
+    print(f"sequences: {sequences}")
+    print(f"available_sequences: {available_sequences}")
 
     if sequences:
         insert_dialog_state(
@@ -78,4 +78,4 @@ async def avaliable_time_for_master(
             name="avaliable_time",
         )
 
-    return sequences
+    return sequences, available_sequences

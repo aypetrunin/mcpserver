@@ -6,6 +6,8 @@ from fastmcp import FastMCP
 
 from ..crm.crm_record_time import record_time_async  # type: ignore
 from ..postgres.postgres_util import insert_dialog_state  # type: ignore
+from ..postgres.postgres_util import read_secondary_article_by_primary  # type: ignore
+
 
 tool_record_time = FastMCP(name="record_time")
 
@@ -26,6 +28,7 @@ tool_record_time = FastMCP(name="record_time")
         - \"Хочу записаться на УЗИ 22 июля в 15:00, Иван, 89161234567\"\n\n
         **Args:**\n
         - session_id(str): id dialog session. **Обязательный параметр.**\n
+        - office_id(str): id филиала. **Обязательный параметр.**\n
         - date (str): Дата записи в формате YYYY-MM-DD. Пример: '2025-07-22'. **Обязательный параметр.**\n
         - time (str): Время записи в формате HH:MM. Пример: '8:00', '13:00'. **Обязательный параметр.**\n
         - product_id (str): Идентификатор медицинской услуги. Обязательно две цифры разделенные дефисом. Пример формата: '1-232324'\n\n
@@ -38,6 +41,7 @@ tool_record_time = FastMCP(name="record_time")
 )
 async def record_time(
     session_id: str,
+    office_id: str,
     date: str,
     time: str,
     product_id: str,
@@ -45,6 +49,22 @@ async def record_time(
     master_id: int = 0,
 ) -> dict[str, Any]:
     """Функция записи на выбранную услугу на определенную дату и время."""
+
+    print('mcp_record_time')
+    print(f"office_id: {office_id}")
+    print(f"product_id: {product_id}")
+
+    primary_channel = product_id.split('-')[0]
+    print(f"primary_channel: {primary_channel}")
+
+    if office_id != primary_channel:
+        product_id = read_secondary_article_by_primary(
+            primary_article=product_id,
+            primary_channel=primary_channel,
+            secondary_channel=office_id
+        )
+    print(f'product_id: {product_id}')
+
     responce = await record_time_async(
         date=date,
         time=time,

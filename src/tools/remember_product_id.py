@@ -5,11 +5,11 @@ from fastmcp import FastMCP
 
 from ..postgres.postgres_util import insert_dialog_state  # type: ignore
 
-tool_record_product_id = FastMCP(name="record_product_id")
+tool_remember_product_id = FastMCP(name="remember_product_id")
 
 
-@tool_record_product_id.tool(
-    name="record_product_id",
+@tool_remember_product_id.tool(
+    name="remember_product_id",
     description=(
         """
         Подтверждение/выбор клиентом нужной услуги.
@@ -24,7 +24,7 @@ tool_record_product_id = FastMCP(name="record_product_id")
         """
     ),
 )
-async def record_product_id(
+async def remember_product_id(
     session_id: str,
     product_id: str,
     product_name: str
@@ -37,9 +37,9 @@ async def record_product_id(
                 "product_id": product_id,
                 "product_name": product_name
             },
-            name="record",
+            name="remember",
         )
     except Exception as e:
-        raise RuntimeError(f"Ошибка record_product_id: {e}")
+        raise RuntimeError(f"Ошибка remember_product_id: {e}")
 
     return [{"product_id": product_id, "product_name": product_name}]

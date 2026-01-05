@@ -5,6 +5,7 @@ import inspect
 import logging
 import os
 import random
+from pathlib import Path
 from typing import Callable, TypeVar, Any, Awaitable, Iterator, Iterable
 
 
@@ -26,8 +27,11 @@ logger = logging.getLogger(__name__)  # создаём логгер для те�
 
 # -------------------- Load env --------------------
 # Загружаем переменные окружения из файла .env
-load_dotenv()
-
+if not os.getenv("IS_DOCKER"):
+    ROOT = Path(__file__).resolve().parents[3]
+    dotenv_path = ROOT / "deploy" / "dev.env"
+    load_dotenv(dotenv_path=dotenv_path)
+    
 # -------------------- Config --------------------
 # Конфигурация для OpenAI, Qdrant и Postgres
 OPENAI_PROXY = os.getenv("OPENAI_PROXY_URL")  # Прокси для OpenAI (если нужен)

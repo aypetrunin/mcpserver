@@ -34,7 +34,7 @@ mcp_sofia.mount(tool_avaliable_time_for_master, "zena")
 
 
 if __name__ == "__main__":
-    mcp_sofia.run(transport="sse", port=MCP_PORT_SOFIA, host="0.0.0.0")
+    mcp_sofia.run(transport="sse", port=int(MCP_PORT_SOFIA), host="0.0.0.0")
 
 # cd /home/copilot_superuser/petrunin/zena/mcpserver
 # uv run python -m src.server.server_sse_sofia

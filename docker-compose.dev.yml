@@ -1,0 +1,26 @@
+services:
+  mcpsrv:
+    build: .
+    image: "zena_mcp:${ENV}"
+    env_file:
+      - ../deploy/dev.env
+    ports:
+      - "${MCP_PORT_ALISA}:${MCP_PORT_ALISA}"
+      - "${MCP_PORT_SOFIA}:${MCP_PORT_SOFIA}"
+      - "${MCP_PORT_ANISA}:${MCP_PORT_ANISA}"
+      - "${MCP_PORT_ANNITTA}:${MCP_PORT_ANNITTA}"
+      - "${MCP_PORT_ANASTASIA}:${MCP_PORT_ANASTASIA}"
+      - "${MCP_PORT_ALENA}:${MCP_PORT_ALENA}"
+    volumes:
+      - ./src:/app/src
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+    restart: unless-stopped
+    networks:
+      - zena-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1', ${MCP_PORT_SOFIA})); s.close()\""]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s

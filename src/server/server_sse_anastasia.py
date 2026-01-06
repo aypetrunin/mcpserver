@@ -4,13 +4,14 @@ import os
 
 from fastmcp import FastMCP
 
-from ..tools.avaliable_time_for_master_list import tool_avaliable_time_for_master_list  # type: ignore
-from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
 from ..tools.faq import tool_faq  # type: ignore
-from ..tools.remember_product_id_list import tool_remember_product_id_list  # type: ignore
-from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.services import tool_services  # type: ignore
+from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.recommendations import tool_recommendations  # type: ignore
+from ..tools.remember_product_id_list import tool_remember_product_id_list  # type: ignore
+from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
+from ..tools.avaliable_time_for_master_list import tool_avaliable_time_for_master_list  # type: ignore
+
 
 MCP_PORT_ANASTASIA = os.getenv("MCP_PORT_ANASTASIA")  # 5007
 CHANNEL_IDS_ANASTASIA = [item.strip() for item in os.getenv("CHANNEL_IDS_ANASTASIA").split(",")]  # 7

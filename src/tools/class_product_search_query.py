@@ -13,9 +13,9 @@ from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: i
 class MCPSearchProductQuery:
     """Универсальный клас создания mcp-сервера поиска услуг."""
 
-    def __init__(self, channel_id: str) -> None:
+    def __init__(self, channel_ids: list[str]) -> None:
         """Инициализация экземпляра класса mcp-сервера."""
-        self.channel_id: str = channel_id
+        self.channel_ids: str = channel_ids
         self.description:str = self._set_description()
         self.tool_product_search: FastMCP = FastMCP(name="product_search")
         self._register_tool()
@@ -44,6 +44,18 @@ class MCPSearchProductQuery:
             """
         return description
 
+    def _add_unique_by_product_name(self, target_list, source_list):
+        existing_names = {item["product_name"] for item in target_list}
+
+        for item in source_list:
+            name = item.get("product_name")
+            if name not in existing_names:
+                target_list.append(item)
+                existing_names.add(name)
+
+        return target_list
+
+
     def _register_tool(self) -> FunctionTool:
         @self.tool_product_search.tool(
             name="product_search",
@@ -54,20 +66,25 @@ class MCPSearchProductQuery:
             query: str,
         ) -> list[dict[str, Any]]:
             logger.info(f"\n\nЗапрос на 'product_search':\n'session_id': {session_id},\n'query': {query}\n")
-            response = await retriever_product_hybrid_async(
-                channel_id=self.channel_id,
-                query=query,
-            ) 
-            logger.info(f"\n\nОтвет от 'product_search':\n{response}\n")
+
+            list_response = []
+            for channel_id in self.channel_ids:
+                response = await retriever_product_hybrid_async(
+                    channel_id=channel_id,
+                    query=query,
+                ) 
+                logger.info(f"\n\nОтвет от 'product_search(channel_id:{channel_id})':\n{response}\n")
+            self._add_unique_by_product_name(list_response, response)
+
             insert_dialog_state(
                 session_id=session_id,
                 product_search={
                     "query_search": {"query": query},
-                    "product_list": response,
+                    "product_list": list_response,
                 },
                 name="selecting",
             )
-            return response
+            return list_response
         return product_search
 
     def get_tool(self) -> FastMCP:

@@ -13,10 +13,10 @@ from ..qdrant.retriever_common import logger  # type: ignore
 class MCPSearchProductFull:
     """Универсальный клас создания mcp-сервера поиска услуг."""
 
-    def __init__(self, channel_id: str) -> None:
+    def __init__(self, channel_ids: list[str]) -> None:
         """Инициализация экземпляра класса mcp-сервера."""
-        self.channel_id: str = channel_id
-        self.key: dict[str, Any] = select_key(channel_id=int(channel_id))
+        self.channel_ids: list[str] = channel_ids
+        self.key: dict[str, Any] = select_key(channel_id=int(channel_ids[0]))
         self.description: str = self._set_description()
         self.tool_product_search: FastMCP = FastMCP(name="product_search")
         self._register_tool()
@@ -143,6 +143,18 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
     """
         return description
 
+    def _add_unique_by_product_name(self, target_list, source_list):
+        existing_names = {item["product_name"] for item in target_list}
+
+        for item in source_list:
+            name = item.get("product_name")
+            if name not in existing_names:
+                target_list.append(item)
+                existing_names.add(name)
+
+        return target_list
+
+
     def _register_tool(self) -> FunctionTool:
         @self.tool_product_search.tool(
             name=f"product_search",
@@ -155,18 +167,22 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
             contraindications: list[str] | None = None,
             body_parts: list[str] | None = None,
         ) -> list[dict[str, Any]]:
-            logger.info(f"\n\n channel_id: {self.channel_id}. Запрос на 'product_search':\n'session_id': {session_id},\n'query': \
+            logger.info(f"\n\n channel_ids: {self.channel_ids}. Запрос на 'product_search':\n'session_id': {session_id},\n'query': \
 {query},\n'body_parts': {body_parts},\n'indications': {indications},\n'contraindications': {contraindications}\n")
             
-            response = await retriever_product_hybrid_async(
-                channel_id=self.channel_id,
-                query=query,
-                indications=indications,
-                contraindications=contraindications,
-                body_parts=body_parts,
-            )
-            logger.info(f"self: {self}")
-            logger.info(f"\n\nОтвет от 'product_search':\n{response}\n")
+            list_response = []
+            for channel_id in self.channel_ids:
+                response = await retriever_product_hybrid_async(
+                    channel_id=channel_id,
+                    query=query,
+                    indications=indications,
+                    contraindications=contraindications,
+                    body_parts=body_parts,
+                )
+                logger.info(f"Ответ от 'product_search(channel_id:{channel_id})':\n{response}\n")
+                logger.info(f"Количество 'product_search(channel_id:{channel_id})':{len(response)}\n")
+                self._add_unique_by_product_name(list_response, response)
+            logger.info(f"ИТОГО количество 'product_search(channel_ids:{self.channel_ids})':{len(list_response)}\n")
 
             insert_dialog_state(
                 session_id=session_id,
@@ -177,28 +193,24 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
                         "contraindications": contraindications,
                         "body_parts": body_parts,
                     },
-                    "product_list": response,
+                    "product_list": list_response,
                 },
                 name="selecting",
             )
 
-            return response 
+            return list_response 
 
         return product_search
 
     def get_tool(self) -> FastMCP:
         """Возвращаем сам FastMCP инструмент для монтирования."""
-        print(f"self.channel_id: {self.channel_id}")
+        print(f"self.channel_id: {self.channel_ids}")
         print(f"self: {self}")
         return self.tool_product_search
 
     def get_description(self) -> str:
         """Возвращаем сам FastMCP инструмент для монтирования."""
         return self.description
-
-
-def build_product_search_tool(channel_id: str) -> FastMCP:
-    return MCPSearchProductFull(channel_id=channel_id).get_tool()
 
 
 if __name__=="__main__":

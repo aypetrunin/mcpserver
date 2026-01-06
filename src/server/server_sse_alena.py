@@ -13,7 +13,7 @@ from ..tools.get_client_statistics import tool_get_client_statistics  # type: ig
 
 
 MCP_PORT_ALENA = os.getenv("MCP_PORT_ALENA")  # 5020
-CHANNEL_ID_ALENA = os.getenv("CHANNEL_ID_ALENA")  # 20
+CHANNEL_IDS_ALENA = [item.strip() for item in os.getenv("CHANNEL_IDS_ALENA").split(",")]  # 20
 
 mcp_alena = FastMCP(name="Alena")
 

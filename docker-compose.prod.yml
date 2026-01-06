@@ -1,0 +1,21 @@
+services:
+  mcpsrv:
+    image: ${MCPSERVER_IMAGE}
+    env_file:
+      - ../deploy/prod.env
+    ports:
+      - "${MCP_PORT_ALISA}:${MCP_PORT_ALISA}"
+      - "${MCP_PORT_SOFIA}:${MCP_PORT_SOFIA}"
+      - "${MCP_PORT_ANISA}:${MCP_PORT_ANISA}"
+      - "${MCP_PORT_ANNITTA}:${MCP_PORT_ANNITTA}"
+      - "${MCP_PORT_ANASTASIA}:${MCP_PORT_ANASTASIA}"
+      - "${MCP_PORT_ALENA}:${MCP_PORT_ALENA}"
+    restart: unless-stopped
+    networks:
+      - zena-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1',${MCP_PORT_SOFIA})); s.close()\""]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s

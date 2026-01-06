@@ -12,9 +12,9 @@ from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.services import tool_services  # type: ignore
 
 MCP_PORT_ANISA = os.getenv("MCP_PORT_ANISA")  # 5005
-CHANNEL_ID_ANISA = os.getenv("CHANNEL_ID_ANISA")  # 5
+CHANNEL_IDS_ANISA = [item.strip() for item in os.getenv("CHANNEL_IDS_ANISA").split(",")]  # 5
 
-tool_product_search = MCPSearchProductQuery(channel_id=CHANNEL_ID_ANISA).get_tool()
+tool_product_search = MCPSearchProductQuery(channel_ids=CHANNEL_IDS_ANISA).get_tool()
 
 mcp_anisa = FastMCP(name="Anisa")
 

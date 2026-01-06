@@ -12,9 +12,9 @@ from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.services import tool_services  # type: ignore
 
 MCP_PORT_ANNITTA = os.getenv("MCP_PORT_ANNITTA")  # 5006
-CHANNEL_ID_ANNITTA = os.getenv("CHANNEL_ID_ANNITTA")  # 6
+CHANNEL_IDS_ANNITTA =  [item.strip() for item in os.getenv("CHANNEL_IDS_ANNITTA").split(",")]  # 6
 
-tool_product_search = MCPSearchProductQuery(channel_id=CHANNEL_ID_ANNITTA).get_tool()
+tool_product_search = MCPSearchProductQuery(channel_ids=CHANNEL_IDS_ANNITTA).get_tool()
 
 mcp_annitta = FastMCP(name="Annitta")
 

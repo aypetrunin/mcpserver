@@ -5,7 +5,7 @@ import os
 from fastmcp import FastMCP
 
 from ..tools.avaliable_time_for_master import tool_avaliable_time_for_master  # type: ignore
-from ..tools.class_product_search_full import MCPSearchProductFull, build_product_search_tool  # type: ignore
+from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
 from ..tools.faq import tool_faq  # type: ignore
 from ..tools.remember_product_id import tool_remember_product_id  # type: ignore
 # from ..tools.remember_product_id_list import tool_remember_product_id_list  # type: ignore
@@ -13,15 +13,11 @@ from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.services import tool_services  # type: ignore
 
 MCP_PORT_SOFIA = os.getenv("MCP_PORT_SOFIA")  # 5002
-CHANNEL_ID_SOFIA = os.getenv("CHANNEL_ID_SOFIA")  # 1
+CHANNEL_IDS_SOFIA =  [item.strip() for item in os.getenv("CHANNEL_IDS_SOFIA").split(",")]  # 1, 19
 
-print(f"CHANNEL_ID_SOFIA: {CHANNEL_ID_SOFIA}")
+print(f"CHANNEL_ID_SOFIA: {CHANNEL_IDS_SOFIA}")
 
-tool_product_search_sofia = build_product_search_tool(CHANNEL_ID_SOFIA)
-# mcp.mount(tool_product_search_sofia, "zena/sofia")
-
-# product_search_sofia = MCPSearchProductFull(channel_id='1')
-# tool_product_search_sofia = product_search_sofia.get_tool()
+tool_product_search_sofia = MCPSearchProductFull(channel_ids=CHANNEL_IDS_SOFIA).get_tool()
 
 mcp_sofia = FastMCP(name="Sofia")
 

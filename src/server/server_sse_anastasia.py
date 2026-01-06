@@ -13,9 +13,9 @@ from ..tools.services import tool_services  # type: ignore
 from ..tools.recommendations import tool_recommendations  # type: ignore
 
 MCP_PORT_ANASTASIA = os.getenv("MCP_PORT_ANASTASIA")  # 5007
-CHANNEL_ID_ANASTASIA = os.getenv("CHANNEL_ID_ANASTASIA")  # 7
+CHANNEL_IDS_ANASTASIA = [item.strip() for item in os.getenv("CHANNEL_IDS_ANASTASIA").split(",")]  # 7
 
-tool_product_search = MCPSearchProductFull(channel_id=CHANNEL_ID_ANASTASIA).get_tool()
+tool_product_search = MCPSearchProductFull(channel_ids=CHANNEL_IDS_ANASTASIA).get_tool()
 
 mcp_anastasia = FastMCP(name="Anastasia")
 

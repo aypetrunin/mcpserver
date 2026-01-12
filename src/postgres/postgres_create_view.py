@@ -71,7 +71,8 @@ def create_product_service_view() -> None:
                     p.channel_id,
                     p.product_id as id,
                     p.article AS product_id,
-                    p.product_full_name AS product_name,
+                    p.product_name AS product_name,
+                    p.product_full_name AS product_full_name,
                     p.description AS product_description,
                     p.time_minutes AS duration,
                     p.price_min,
@@ -96,7 +97,7 @@ def create_product_service_view() -> None:
 
 
 if __name__ == "__main__":
-    create_view_channel_services_keys()
+    # create_view_channel_services_keys()
     create_product_service_view()
 
 # cd /home/copilot_superuser/petrunin/zena

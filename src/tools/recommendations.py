@@ -15,17 +15,15 @@ tool_recommendations = FastMCP(name="recommendations")
 @tool_recommendations.tool(
     name="recommendations",
     description=(
-        "Получение информации об услуге ПОСЛЕ ЗАПИСИ о противопоказаниям к услуге и как подготовится к услуге.\n\n"
+        "Получение рекомендации по услуге.\n\n"
         "**Назначение:**\n"
-        "Используется для поиска информации о конкретной услуге выбрал клиент.\n"
-        "Позволяет узнать подробности: описание услуги, противопоказания и подготовку к посещению.\n\n"
+        "Позволяет узнать рекомендации к посещению.\n\n"
         "**Args:**\n"
         "- session_id(str): id dialog session. **Обязательный параметр.**\n"
         "- product_name (str, required ): Название выбранной услуги."
         "- channel_id (str, required ): id channal company. \n"
         "**Returns:**\n"
-        "- list[dict]: A list of relevant services with structured details including description, indications, "
-        "contraindications, and pre-session instructions."
+        "- list[dict]: A list services_name, description, recommendations "
     ),
 )
 async def recommendations(

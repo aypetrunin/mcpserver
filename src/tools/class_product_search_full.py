@@ -205,7 +205,6 @@ Only the following values from the list are allowed: [{self.key.get("body_parts"
     def get_tool(self) -> FastMCP:
         """Возвращаем сам FastMCP инструмент для монтирования."""
         print(f"self.channel_id: {self.channel_ids}")
-        print(f"self: {self}")
         return self.tool_product_search
 
     def get_description(self) -> str:

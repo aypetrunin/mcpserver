@@ -222,6 +222,26 @@ def read_secondary_article_by_primary(
         conn.close()
 
 
+def get_product_name_for_id(product_id: str) -> str | None:
+    """Функция возвращает название услуги по его id."""
+    conn = psycopg2.connect(**POSTGRES_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.product_name
+                FROM products p
+                WHERE p.article = %s
+                """,
+                (product_id,)
+            )
+            row = cur.fetchone()
+            return row[0] if row else None
+    finally:
+        conn.close()
+
+
+
 if __name__ == "__main__":
     result = select_key(channel_id=1)
     # print(f"\n{result}")

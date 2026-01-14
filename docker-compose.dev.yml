@@ -11,6 +11,7 @@ services:
       - "${MCP_PORT_ANNITTA}:${MCP_PORT_ANNITTA}"
       - "${MCP_PORT_ANASTASIA}:${MCP_PORT_ANASTASIA}"
       - "${MCP_PORT_ALENA}:${MCP_PORT_ALENA}"
+      - "${MCP_PORT_VALENTINA}:${MCP_PORT_VALENTINA}"
     volumes:
       - ./src:/app/src
       - ./pyproject.toml:/app/pyproject.toml

@@ -29,7 +29,7 @@ tool_remember_master = FastMCP(name="remember_master")
     """
     ),
 )
-async def remember_office(
+async def remember_master(
     master_id: str,
     master_name: str,
 ) -> dict[str, Any]:

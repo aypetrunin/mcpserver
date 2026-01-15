@@ -7,6 +7,7 @@ from fastmcp import FastMCP
 from ..tools.faq import tool_faq  # type: ignore
 from ..tools.services import tool_services  # type: ignore
 from ..tools.record_time import tool_record_time  # type: ignore
+from ..tools.remember_master import tool_remember_master  # type: ignore
 from ..tools.recommendations import tool_recommendations  # type: ignore
 from ..tools.remember_product_id_list import tool_remember_product_id_list  # type: ignore
 from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
@@ -24,6 +25,7 @@ mcp_anastasia.mount(tool_faq, "zena")
 mcp_anastasia.mount(tool_services, "zena")
 mcp_anastasia.mount(tool_record_time, "zena")
 mcp_anastasia.mount(tool_product_search, "zena")
+mcp_anastasia.mount(tool_remember_master, "zena")
 mcp_anastasia.mount(tool_recommendations, "zena")
 mcp_anastasia.mount(tool_remember_product_id_list, "zena")
 mcp_anastasia.mount(tool_avaliable_time_for_master_list, "zena")

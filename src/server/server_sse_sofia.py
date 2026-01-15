@@ -9,6 +9,7 @@ from ..tools.services import tool_services  # type: ignore
 from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.recommendations import tool_recommendations  # type: ignore
 from ..tools.remember_office import tool_remember_office  # type: ignore
+from ..tools.remember_master import tool_remember_master  # type: ignore
 from ..tools.remember_product_id import tool_remember_product_id  # type: ignore
 from ..tools.remember_desired_date import tool_remember_desired_date  # type: ignore
 from ..tools.remember_desired_time import tool_remember_desired_time  # type: ignore
@@ -28,6 +29,7 @@ mcp_sofia.mount(tool_faq, "zena")
 mcp_sofia.mount(tool_services, "zena")
 mcp_sofia.mount(tool_record_time, "zena")
 mcp_sofia.mount(tool_remember_office, "zena")
+mcp_sofia.mount(tool_remember_master, "zena")
 mcp_sofia.mount(tool_recommendations, "zena")
 mcp_sofia.mount(tool_remember_product_id, "zena")
 mcp_sofia.mount(tool_product_search_sofia, "zena")

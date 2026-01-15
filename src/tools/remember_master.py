@@ -35,4 +35,4 @@ async def remember_office(
 ) -> dict[str, Any]:
     """Функция сохранения сохранения выбранного клиентом мастера для записи."""
 
-    return {"success": True, "office_id": master_id, "office_address": master_name}
+    return {"success": True, "master_id": master_id, "master_name": master_name}

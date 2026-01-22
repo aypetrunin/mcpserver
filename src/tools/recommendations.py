@@ -4,7 +4,6 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from ..postgres.postgres_util import insert_dialog_state  # type: ignore
 from ..qdrant.retriever_faq_services import retriver_hybrid_async  # type: ignore
 from ..qdrant.retriever_faq_services import QDRANT_COLLECTION_SERVICES  # type: ignore
 
@@ -43,12 +42,6 @@ async def recommendations(
         allowed_keys = ["services_name", "description", "pre_session_instructions", ]
         filtered_results = [{k: s[k] for k in allowed_keys if k in s} for s in results]
         
-        insert_dialog_state(
-            session_id=session_id,
-            recommendations={"recommendations": results},
-            name="new",
-        )
-
         return filtered_results or []  # ✅ Возвращаем пустой список при None
     
     except Exception as e:

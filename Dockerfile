@@ -24,4 +24,4 @@ RUN uv pip install --no-deps .
 # EXPOSE 5001 5002 5005 5006 5007 5017 5018 5020
 
 # Запуск
-CMD ["uv", "run", "python", "main.py"]
+CMD ["uv", "run", "python", "main_v2.py"]

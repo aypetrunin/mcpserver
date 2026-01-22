@@ -4,11 +4,6 @@ import httpx
 
 from typing import Any, Literal, TypedDict, cast
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s]: %(message)s",
-    handlers=[logging.StreamHandler()],
-)
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +13,13 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
-
+from .crm_settings import (
+    CRM_BASE_URL,
+    CRM_HTTP_TIMEOUT_S,
+    CRM_HTTP_RETRIES,
+    CRM_RETRY_MIN_DELAY_S,
+    CRM_RETRY_MAX_DELAY_S,
+)
 class ErrorResponse(TypedDict):
     success: Literal[False]
     error: str
@@ -29,26 +30,23 @@ class SuccessResponse(TypedDict):
 
 ResponsePayload = ErrorResponse | SuccessResponse
 
-BASE_URL: str = "https://httpservice.ai2b.pro"
-TIMEOUT_SECONDS: float = 180.0
-MAX_RETRIES: int = 3
 
 @retry(
-    stop=stop_after_attempt(MAX_RETRIES),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
+    stop=stop_after_attempt(CRM_HTTP_RETRIES),
+    wait=wait_exponential(multiplier=1, min=CRM_RETRY_MIN_DELAY_S, max=CRM_RETRY_MAX_DELAY_S),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
     reraise=True,
 )
 async def go_get_client_statisics(
     phone: str,
     channel_id: str = '20',
-    timeout: float = TIMEOUT_SECONDS,
+    timeout: float = CRM_HTTP_TIMEOUT_S,
 ) -> ResponsePayload:
     """Получение статистических данных о посещении занятий клиентов."""
 
     logger.info("===crm.go_get_client_statisics===")
 
-    url = f"{BASE_URL}/appointments/go_crm/client_info"
+    url = f"{CRM_BASE_URL}/appointments/go_crm/client_info"
 
     payload = {
         "channel_id": channel_id,

@@ -4,7 +4,6 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
-from ..postgres.postgres_util import insert_dialog_state  # type: ignore
 from ..qdrant.retriever_common import logger  # type: ignore
 from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: ignore
 
@@ -76,14 +75,6 @@ class MCPSearchProductQuery:
                 logger.info(f"\n\nОтвет от 'product_search(channel_id:{channel_id})':\n{response}\n")
             self._add_unique_by_product_name(list_response, response)
 
-            insert_dialog_state(
-                session_id=session_id,
-                product_search={
-                    "query_search": {"query": query},
-                    "product_list": list_response,
-                },
-                name="selecting",
-            )
             return list_response
         return product_search
 

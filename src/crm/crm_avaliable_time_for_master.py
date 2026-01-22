@@ -1,6 +1,6 @@
 """Модуль поиска свободных слотов по мастерам.
 
-Поиск ведется через API https://httpservice.ai2b.pro.
+Поиск ведется через API CRM gateway (CRM_BASE_URL).
 """
 
 import asyncio
@@ -15,19 +15,22 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+from .crm_settings import (
+    CRM_BASE_URL,
+    CRM_HTTP_TIMEOUT_S,
+    CRM_HTTP_RETRIES,
+    CRM_RETRY_MIN_DELAY_S,
+    CRM_RETRY_MAX_DELAY_S,
+)
+
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
 
-# Константы (лучше вынести в .env или config)
-BASE_URL = "https://httpservice.ai2b.pro"
-TIMEOUT_SECONDS = 180.0
-MAX_RETRIES = 3
-
 
 @retry(
-    stop=stop_after_attempt(MAX_RETRIES),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
+    stop=stop_after_attempt(CRM_HTTP_RETRIES),
+    wait=wait_exponential(multiplier=1, min=CRM_RETRY_MIN_DELAY_S, max=CRM_RETRY_MAX_DELAY_S),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
     reraise=True,
 )
@@ -35,7 +38,7 @@ async def avaliable_time_for_master_async(
     date: str,
     service_id: str,
     count_slots: int = 30,
-    timeout: float = TIMEOUT_SECONDS,
+    timeout: float = CRM_HTTP_TIMEOUT_S,
 ) -> List[Dict[str, Any]]:
     """Асинхронный запрос на получение доступных слотов по мастерам для указанной услуги.
 
@@ -46,12 +49,12 @@ async def avaliable_time_for_master_async(
     :return: Список словарей с информацией о мастерах и их слотах.
     """
     logger.info("===crm.avaliable_time_for_master_async===")
-    print("===crm.avaliable_time_for_master_async===")
+
     if not service_id or not isinstance(service_id, str):
         logger.warning("Invalid service_id provided: %s", service_id)
         return []
 
-    url = f"{BASE_URL}/appointments/yclients/product"  # Убраны пробелы!
+    url = f"{CRM_BASE_URL}/appointments/yclients/product"  # Убраны пробелы!
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -61,11 +64,7 @@ async def avaliable_time_for_master_async(
                 json={"service_id": service_id, "base_date": date},
             )
             response.raise_for_status()
-            # print(f"type(response): {type(response)}")
-            # print(f"response: {response}")
             resp_json = response.json()
-            # print(f"type(resp_json): {type(resp_json)}")
-            # print(f"resp_json: {resp_json}")
 
     except httpx.TimeoutException as e:
         logger.error(
@@ -85,7 +84,7 @@ async def avaliable_time_for_master_async(
 
     # Обработка успешного ответа
     if not resp_json.get("success"):
-        logger.warning("API returned success=False for service_id=%s", service_id)
+        logger.warning("API вернул success=False для service_id=%s", service_id)
         return []
 
     result = resp_json.get("result") or {}
@@ -104,7 +103,7 @@ async def avaliable_time_for_master_async(
             for item in staff_list
             if isinstance(item.get("dates"), list)
         ]
-        print(results)
+        logger.info(results)
         return results
     return []
 

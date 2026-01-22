@@ -15,17 +15,17 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
-
+from .crm_settings import (
+    CRM_BASE_URL,
+    CRM_HTTP_TIMEOUT_S,
+    CRM_HTTP_RETRIES,
+    CRM_RETRY_MIN_DELAY_S,
+    CRM_RETRY_MAX_DELAY_S,
+)
 from .crm_get_client_statistics import AbonementCalculator, go_get_client_statisics
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s]: %(message)s",
-    handlers=[logging.StreamHandler()],
-)
 logger = logging.getLogger(__name__)
-
 
 
 class ErrorResponse(TypedDict):
@@ -60,14 +60,9 @@ def _validate_str_param(name: str, value: Any) -> bool:
     return isinstance(value, str) and bool(value)
 
 
-BASE_URL: str = "https://httpservice.ai2b.pro"
-TIMEOUT_SECONDS: float = 180.0
-MAX_RETRIES: int = 1
-
-
 @retry(
-    stop=stop_after_attempt(MAX_RETRIES),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
+    stop=stop_after_attempt(CRM_HTTP_RETRIES),
+    wait=wait_exponential(multiplier=1, min=CRM_RETRY_MIN_DELAY_S, max=CRM_RETRY_MAX_DELAY_S),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
     reraise=True,
 )
@@ -80,7 +75,7 @@ async def go_update_client_lesson(
     new_time: str,
     service: str,
     reason: str,
-    timeout: float = TIMEOUT_SECONDS,
+    timeout: float = CRM_HTTP_TIMEOUT_S,
 ) -> ResponsePayload:
     """Перенос урока клиента на другую дату/время."""
 
@@ -129,7 +124,7 @@ async def go_update_client_lesson(
         logger.exception(msg)
         return ErrorResponse(success=False, error=msg)
 
-    url = f"{BASE_URL}/appointments/go_crm/reschedule_record"
+    url = f"{CRM_BASE_URL}/appointments/go_crm/reschedule_record"
 
     payload: dict[str, str] = {
         "channel_id": channel_id,

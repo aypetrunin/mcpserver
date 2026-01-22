@@ -8,9 +8,9 @@ from qdrant_client import models
 
 from .retriever_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
-    bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)
+    get_bm25_model, # Sparse-векторная модель BM25 (fastembed)
     logger,  # Логгер для отладки и мониторинга
-    qdrant_client,  # Асинхронный клиент Qdrant
+    get_qdrant_client,  # Асинхронный клиент Qdrant
     retry_request,  # Обёртка для надёжного выполнения с повторными попытками
 )
 
@@ -110,7 +110,7 @@ async def retriver_hybrid_async(
         # 2️⃣ Генерация sparse-вектора BM25, если включён гибрид
         # -------------------------------------------------------
         if hybrid:
-            query_bm25 = next(bm25_embedding_model.query_embed(query))
+            query_bm25 = next(get_bm25_model().query_embed(query))
 
         # -------------------------------------------------------
         # 3️⃣ Формируем фильтр по channel_id (если задан)
@@ -138,7 +138,7 @@ async def retriver_hybrid_async(
                     limit=limit,
                 ),
             ]
-            response = await qdrant_client.query_points(
+            response = await get_qdrant_client().query_points(
                 collection_name=database_name,
                 prefetch=prefetch,
                 query=models.FusionQuery(
@@ -150,7 +150,7 @@ async def retriver_hybrid_async(
             )
         else:
             # --- Обычный dense-поиск (только Ada) ---
-            response = await qdrant_client.query_points(
+            response = await get_qdrant_client().query_points(
                 collection_name=database_name,
                 query=query_vector,
                 using="ada-embedding",

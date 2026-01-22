@@ -3,8 +3,6 @@
 from typing import Any
 from fastmcp import FastMCP
 
-from ..postgres.postgres_util import insert_dialog_state  # type: ignore
-
 tool_remember_product_id_list = FastMCP(name="remember_product_id_list")
 
 
@@ -36,11 +34,6 @@ async def remember_product_id(
             for v1, v2 in zip(product_id, product_name)
         ]
 
-        insert_dialog_state(
-            session_id=session_id,
-            product_id=result,
-            name="remember",
-        )
     except Exception as e:
         raise RuntimeError(f"Ошибка remember_product_id: {e}")
 

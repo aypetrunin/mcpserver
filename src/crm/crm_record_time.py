@@ -1,6 +1,6 @@
 """Модуль записи на услугу на определенную дату и время.
 
-Поиск ведется через API https://httpservice.ai2b.pro.
+Поиск ведется через API CRM gateway (CRM_BASE_URL).
 """
 
 import asyncio
@@ -14,21 +14,23 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+from .crm_settings import (
+    CRM_BASE_URL,
+    CRM_HTTP_TIMEOUT_S,
+    CRM_HTTP_RETRIES,
+    CRM_RETRY_MIN_DELAY_S,
+    CRM_RETRY_MAX_DELAY_S,
+)
+
 
 from .crm_avaliable_time_for_master import avaliable_time_for_master_async
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
 
-# Константы
-BASE_URL = "https://httpservice.ai2b.pro"
-TIMEOUT_SECONDS = 120.0
-MAX_RETRIES = 3
-
-
 @retry(
-    stop=stop_after_attempt(MAX_RETRIES),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
+    stop=stop_after_attempt(CRM_HTTP_RETRIES),
+    wait=wait_exponential(multiplier=1, min=CRM_RETRY_MIN_DELAY_S, max=CRM_RETRY_MAX_DELAY_S),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
     reraise=True,
 )
@@ -42,8 +44,8 @@ async def record_time_async(
     comment: str | None = "Запись через API",
     notify_by_sms: int = 0,
     notify_by_email: int = 0,
-    endpoint_url: str = f"{BASE_URL}/appointments/yclients/create_booking",
-    timeout: float = TIMEOUT_SECONDS,
+    endpoint_url: str = f"{CRM_BASE_URL}/appointments/yclients/create_booking",
+    timeout: float = CRM_HTTP_TIMEOUT_S,
 ) -> Dict[str, Any]:
     """Асинхронная запись пользователя на услугу через API с предварительной проверкой слотов.
 
@@ -79,6 +81,7 @@ async def record_time_async(
         requested_datetime,
         staff_id,
     )
+    logger.info("Проверка доступности времени - НЕТ")
 
     # Проверка доступности времени
     # try:
@@ -169,7 +172,7 @@ if __name__ == "__main__":
 
     async def main() -> None:
         """Тестовый пример работы функции."""
-        url = "https://httpservice.ai2b.pro/appointments/yclients/create_booking"  # или твой боевой URL
+        url = f"{CRM_BASE_URL}/appointments/yclients/create_booking"  # или твой боевой URL
         result = await record_time_async(
             endpoint_url=url,
             staff_id=4131055,

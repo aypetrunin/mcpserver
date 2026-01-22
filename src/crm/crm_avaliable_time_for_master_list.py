@@ -1,6 +1,6 @@
 """Модуль поиска свободных слотов по мастерам.
 
-Поиск ведется через API https://httpservice.ai2b.pro.
+Поиск ведется через API CRM gateway (CRM_BASE_URL).
 """
 
 import asyncio
@@ -17,19 +17,20 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
-
+from .crm_settings import (
+    CRM_BASE_URL,
+    CRM_HTTP_TIMEOUT_S,
+    CRM_HTTP_RETRIES,
+    CRM_RETRY_MIN_DELAY_S,
+    CRM_RETRY_MAX_DELAY_S,
+)
 # Настройка логгера
 logger = logging.getLogger(__name__)
 
-# Константы (лучше вынести в .env или config)
-BASE_URL = "https://httpservice.ai2b.pro"
-TIMEOUT_SECONDS = 180.0
-MAX_RETRIES = 3
-
 
 @retry(
-    stop=stop_after_attempt(MAX_RETRIES),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
+    stop=stop_after_attempt(CRM_HTTP_RETRIES),
+    wait=wait_exponential(multiplier=1, min=CRM_RETRY_MIN_DELAY_S, max=CRM_RETRY_MAX_DELAY_S),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
     reraise=True,
 )
@@ -38,7 +39,7 @@ async def avaliable_time_for_master_list_async(
     service_id: str,
     service_name: str,
     count_slots: int = 30,
-    timeout: float = TIMEOUT_SECONDS,
+    timeout: float = CRM_HTTP_TIMEOUT_S,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Асинхронный запрос на получение доступных слотов по мастерам для указанной услуги.
 
@@ -51,7 +52,7 @@ async def avaliable_time_for_master_list_async(
     logger.info("===crm_avaliable_time_for_master_list===")
 
     if not service_id or not isinstance(service_id, str):
-        logger.warning("Invalid service_id provided: %s", service_id)
+        logger.warning("Не верный service_id: %s", service_id)
         return [], []
 
     try:
@@ -68,7 +69,7 @@ async def avaliable_time_for_master_list_async(
              "error": f"Ошибка в выборе даты. Нельзя записаться на прошедшее число. Напомню, сегодня {today.strftime('%Y-%m-%d')}"}
         ], []
 
-    url = f"{BASE_URL}/appointments/yclients/product"
+    url = f"{CRM_BASE_URL}/appointments/yclients/product"
 
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:

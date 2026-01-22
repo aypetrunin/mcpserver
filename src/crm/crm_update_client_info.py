@@ -15,15 +15,15 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s]: %(message)s",
-    handlers=[logging.StreamHandler()],
+from .crm_settings import (
+    CRM_BASE_URL,
+    CRM_HTTP_TIMEOUT_S,
+    CRM_HTTP_RETRIES,
+    CRM_RETRY_MIN_DELAY_S,
+    CRM_RETRY_MAX_DELAY_S,
 )
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 
 
 class ErrorResponse(TypedDict):
@@ -58,14 +58,9 @@ def _validate_str_param(name: str, value: Any) -> bool:
     return isinstance(value, str) and bool(value)
 
 
-BASE_URL: str = "https://httpservice.ai2b.pro"
-TIMEOUT_SECONDS: float = 180.0
-MAX_RETRIES: int = 1
-
-
 @retry(
-    stop=stop_after_attempt(MAX_RETRIES),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
+    stop=stop_after_attempt(CRM_HTTP_RETRIES),
+    wait=wait_exponential(multiplier=1, min=CRM_RETRY_MIN_DELAY_S, max=CRM_RETRY_MAX_DELAY_S),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
     reraise=True,
 )
@@ -78,7 +73,7 @@ async def go_update_client_info(
     child_name: str,
     child_date_of_birth: str,
     contact_reason: str,
-    timeout: float = TIMEOUT_SECONDS,
+    timeout: float = CRM_HTTP_TIMEOUT_S,
 ) -> ResponsePayload:
     """Регистрация нового клиента в GO GRM."""
 
@@ -97,7 +92,7 @@ async def go_update_client_info(
             return _log_and_build_input_error(name, value)
 
 
-    url = f"{BASE_URL}/appointments/go_crm/create_client"
+    url = f"{CRM_BASE_URL}/appointments/go_crm/create_client"
 
     payload: dict[str, str] = {
         "user_id": user_id,

@@ -5,7 +5,6 @@ from typing import Any
 from fastmcp import FastMCP
 
 from ..crm.crm_record_time import record_time_async  # type: ignore
-from ..postgres.postgres_util import insert_dialog_state  # type: ignore
 from ..postgres.postgres_util import read_secondary_article_by_primary  # type: ignore
 
 
@@ -72,20 +71,5 @@ async def record_time(
         user_id=client_id,
         staff_id=master_id,
     )
-
-    if responce:
-        insert_dialog_state(
-            session_id=session_id,
-            record_time={
-                "record_time": {
-                    "date": date,
-                    "time": time,
-                    "product_id": product_id,
-                    "client_id": client_id,
-                    "master_id": master_id,
-                }
-            },
-            name="postrecord",
-        )
 
     return responce

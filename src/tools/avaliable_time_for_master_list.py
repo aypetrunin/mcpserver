@@ -4,7 +4,6 @@ from typing import Any
 from fastmcp import FastMCP
 
 from ..crm.crm_avaliable_time_for_master_list import avaliable_time_for_master_list_async  # type: ignore
-from ..postgres.postgres_util import insert_dialog_state  # type: ignore
 
 tool_avaliable_time_for_master_list = FastMCP(name="avaliable_time_for_master_list")
 
@@ -67,15 +66,5 @@ async def avaliable_time_for_master(
     
     print(f"sequences: {sequences}")
     print(f"available_sequences: {available_sequences}")
-
-    if sequences:
-        insert_dialog_state(
-            session_id=session_id,
-            avaliable_time={
-                "avaliable_time_for_master": sequences,
-                "available_sequences": available_sequences,
-            },
-            name="avaliable_time",
-        )
 
     return sequences, available_sequences

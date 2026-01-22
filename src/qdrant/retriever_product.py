@@ -10,9 +10,9 @@ from qdrant_client.models import FieldCondition
 
 from .retriever_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
-    bm25_embedding_model,  # Sparse-векторная модель BM25 (fastembed)
+    get_bm25_model,  # Sparse-векторная модель BM25 (fastembed)
     logger,  # Логгер для записи шагов и результатов
-    qdrant_client,  # Асинхронный клиент Qdrant
+    get_qdrant_client,  # Асинхронный клиент Qdrant
     retry_request,  # Надёжный вызов с повторными попытками
 )
 
@@ -172,7 +172,7 @@ async def retriever_product_async(
             query_vector = (await ada_embeddings([query]))[0]
 
             # Поиск ближайших точек в Qdrant
-            res = await qdrant_client.query_points(
+            res = await get_qdrant_client().query_points(
                 collection_name=COLLECTION_NAME,
                 query=query_vector,
                 using="ada-embedding",
@@ -182,7 +182,7 @@ async def retriever_product_async(
             )
         else:
             # Если запроса нет — просто скроллим коллекцию
-            res, _ = await qdrant_client.scroll(
+            res, _ = await get_qdrant_client().scroll(
                 collection_name=COLLECTION_NAME,
                 scroll_filter=query_filter,
                 with_payload=True,
@@ -233,7 +233,7 @@ async def retriever_product_hybrid_async(
         if query:
             # --- Генерация векторов ---
             qv_ada = (await ada_embeddings([query]))[0]
-            qv_bm25 = next(bm25_embedding_model.query_embed(query))
+            qv_bm25 = next(get_bm25_model().query_embed(query))
 
             # --- Настройка prefetch для гибридного поиска ---
             prefetch = [
@@ -246,7 +246,7 @@ async def retriever_product_hybrid_async(
             ]
 
             # --- Выполнение гибридного поиска (RRF) ---
-            res = await qdrant_client.query_points(
+            res = await get_qdrant_client().query_points(
                 collection_name=COLLECTION_NAME,
                 prefetch=prefetch,
                 query=models.FusionQuery(fusion=models.Fusion.RRF),
@@ -256,7 +256,7 @@ async def retriever_product_hybrid_async(
             )
         else:
             # --- Если текста нет — просто фильтрация по полям ---
-            res, _ = await qdrant_client.scroll(
+            res, _ = await get_qdrant_client().scroll(
                 collection_name=COLLECTION_NAME,
                 scroll_filter=query_filter,
                 with_payload=True,
@@ -301,7 +301,7 @@ async def retriever_product_hybrid_mult_async(
     async def _logic() -> list[dict[str, Any]]:
         if query:
             qv_ada = (await ada_embeddings([query]))[0]
-            qv_bm25 = next(bm25_embedding_model.query_embed(query))
+            qv_bm25 = next(get_bm25_model().query_embed(query))
 
             prefetch = [
                 models.Prefetch(query=qv_ada, using="ada-embedding", limit=10),
@@ -340,7 +340,7 @@ async def retriever_product_hybrid_mult_async(
                 )
             )
 
-            res = await qdrant_client.query_points(
+            res = await get_qdrant_client().query_points(
                 collection_name=COLLECTION_NAME,
                 prefetch=prefetch,
                 query=formula,
@@ -349,7 +349,7 @@ async def retriever_product_hybrid_mult_async(
                 limit=10,
             )
         else:
-            res, _ = await qdrant_client.scroll(
+            res, _ = await get_qdrant_client().scroll(
                 collection_name=COLLECTION_NAME,
                 scroll_filter=query_filter,
                 with_payload=True,

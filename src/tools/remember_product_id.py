@@ -3,7 +3,7 @@
 from typing import Any
 from fastmcp import FastMCP
 
-from ..postgres.postgres_util import insert_dialog_state, get_product_name_for_id  # type: ignore
+from ..postgres.postgres_util import get_product_name_for_id  # type: ignore
 
 tool_remember_product_id = FastMCP(name="remember_product_id")
 
@@ -39,19 +39,13 @@ async def remember_product_id(
             "message": "Ошибка в выборе услуги. Покажи заново найденные услуги.",
         }
 
-        product_name_for_id = get_product_name_for_id(product_id=product_id)
+        product_name_for_id = await get_product_name_for_id(product_id=product_id)
         if product_name_for_id is None:
             return fail_resp
 
         # Нормализация для сравнения
         if product_name_for_id.strip().casefold() != product_name.strip().casefold():
             return fail_resp
-
-        insert_dialog_state(
-            session_id=session_id,
-            product_id={"product_id": product_id, "product_name": product_name_for_id},
-            name="remember",
-        )
 
         return {
             "success": True,

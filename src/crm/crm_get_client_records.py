@@ -41,7 +41,7 @@ class PersonalRecordsResponse(TypedDict):
 async def get_client_records(user_companychat: int, channel_id: str) -> PersonalRecordsResponse:
     """Асинхронный поиск записей клиента через API CRM gateway."""
 
-    logger.info("===zena_requests.get_client_records===")
+    logger.info("===crm.crm_get_client_records===")
 
     endpoint_url = f"{CRM_BASE_URL}/appointments/client/records"
     payload = {"user_companychat": user_companychat, "channel_id": channel_id}

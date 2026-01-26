@@ -17,23 +17,20 @@ tool_record_time = FastMCP(name="record_time")
         """
         Запись клиента на медицинскую услугу в выбранную дату и время.
 
-        **Назначение:**\n
+        **Назначение:**
         Используется, когда клиент подтвердил желание записаться на конкретную услугу в указанное время.
-        Фиксирует запись с именем и телефоном клиента для последующего подтверждения или обработки администрацией.\n\n
-        **Обязательные параметры:**\n
-        - Все параметры обязательны для успешной записи.\n\n
-        **Примеры запросов:**\n"
-        - \"Запишите меня на массаж завтра в 11:00, меня зовут Анна, телефон 89991234567\"\n
-        - \"Хочу записаться на УЗИ 22 июля в 15:00, Иван, 89161234567\"\n\n
-        **Args:**\n
-        - session_id(str): id dialog session. **Обязательный параметр.**\n
-        - office_id(str): id филиала. **Обязательный параметр.**\n
-        - date (str): Дата записи в формате YYYY-MM-DD. Пример: '2025-07-22'. **Обязательный параметр.**\n
-        - time (str): Время записи в формате HH:MM. Пример: '8:00', '13:00'. **Обязательный параметр.**\n
-        - product_id (str): Идентификатор медицинской услуги. Обязательно две цифры разделенные дефисом. Пример формата: '1-232324'\n\n
-        - client_id (int): ID клиента, записывающегося на услугу. Пример: 16677323 . **Обязательный параметр.**\n
-        - master_id (int): ID мастера выполняющего услугу. Пример: 16677323 . **Не обязательный параметр.**\n
-        **Returns:**\n
+        Фиксирует запись с именем и телефоном клиента для последующего подтверждения или обработки администрацией.
+
+        **Args:**
+        - session_id(str): id dialog session. **Обязательный параметр.**
+        - office_id(str): id филиала. **Обязательный параметр.**
+        - date (str): Дата записи в формате YYYY-MM-DD. Пример: '2025-07-22'. **Обязательный параметр.**
+        - time (str): Время записи в формате HH:MM. Пример: '8:00', '13:00'. **Обязательный параметр.**
+        - product_id (str): Идентификатор услуги. Формат: '1-232324'. **Обязательный параметр.**
+        - client_id (int): ID клиента. **Обязательный параметр.**
+        - master_id (int): ID мастера. **Не обязательный параметр.**
+
+        **Returns:**
         - dict: success = True, если запись прошла успешно, иначе False.
         """
     ),
@@ -49,22 +46,42 @@ async def record_time(
 ) -> dict[str, Any]:
     """Функция записи на выбранную услугу на определенную дату и время."""
 
-    print('mcp_record_time')
+    print("mcp_record_time")
     print(f"office_id: {office_id}")
     print(f"product_id: {product_id}")
 
-    primary_channel = product_id.split('-')[0]
-    print(f"primary_channel: {primary_channel}")
+    # 1) Достаём primary_channel из product_id (это строка, например "1")
+    primary_channel_str = product_id.split("-", 1)[0]
+    print(f"primary_channel: {primary_channel_str}")
 
-    if office_id != primary_channel:
-        product_id = read_secondary_article_by_primary(
-            primary_article=product_id,
-            primary_channel=primary_channel,
-            secondary_channel=office_id
+    # 2) Нормализуем office_id и primary_channel к int ДЛЯ Postgres
+    # (в CRM product_id остаётся строкой вида "1-xxxx")
+    try:
+        office_id_int = int(office_id)
+    except ValueError:
+        raise ValueError(f"Некорректный office_id: {office_id!r}. Ожидалось число, например '19'.")
+
+    try:
+        primary_channel_int = int(primary_channel_str)
+    except ValueError:
+        raise ValueError(
+            f"Некорректный primary_channel в product_id: {product_id!r}. "
+            f"Ожидался формат 'число-число', например '1-232324'."
         )
-    print(f'product_id: {product_id}')
 
-    responce = await record_time_async(
+    # 3) Сравниваем как числа (чтобы не было сюрпризов с "01" vs "1")
+    if office_id_int != primary_channel_int:
+        # read_secondary_article_by_primary, судя по ошибке asyncpg, ожидает int-ы
+        product_id = await read_secondary_article_by_primary(
+            primary_article=product_id,              # это строка артикула "1-232324" — так и надо
+            primary_channel=primary_channel_int,     # ✅ int
+            secondary_channel=office_id_int,         # ✅ int
+        )
+
+    print(f"resolved product_id: {product_id}")
+
+    # 4) Записываем в CRM (product_id должен быть строкой)
+    response = await record_time_async(
         date=date,
         time=time,
         product_id=product_id,
@@ -72,4 +89,4 @@ async def record_time(
         staff_id=master_id,
     )
 
-    return responce
+    return response

@@ -52,10 +52,10 @@ async def available_time_for_master(
     response_list: list[dict[str, Any]] = []
 
     primary_product_id = product_id
-    primary_channel = _extract_primary_channel(primary_product_id)
+    primary_channel = await _extract_primary_channel(primary_product_id)
 
     # 1) пробуем указанный филиал
-    product_for_office = _resolve_product_for_office(
+    product_for_office = await _resolve_product_for_office(
         primary_product_id=primary_product_id,
         primary_channel=primary_channel,
         office_id=office_id,
@@ -71,13 +71,13 @@ async def available_time_for_master(
 
     # 2) если пусто — пробуем другие филиалы (параллельно)
     if not response:
-        other_offices = _parse_channel_ids("CHANNEL_IDS_SOFIA", exclude=office_id)
+        other_offices = await _parse_channel_ids("CHANNEL_IDS_SOFIA", exclude=office_id)
 
         tasks: list[asyncio.Task[list[dict[str, Any]]]] = []
         office_order: list[str] = []
 
         for other_office_id in other_offices:
-            product_for_other = _resolve_product_for_office(
+            product_for_other = await _resolve_product_for_office(
                 primary_product_id=primary_product_id,
                 primary_channel=primary_channel,
                 office_id=other_office_id,
@@ -107,7 +107,7 @@ async def available_time_for_master(
     return response_list
 
 
-def _parse_channel_ids(env_name: str, exclude: Optional[str] = None) -> list[str]:
+async def _parse_channel_ids(env_name: str, exclude: Optional[str] = None) -> list[str]:
     raw = os.getenv(env_name, "")  # безопасно, даже если переменная не задана
     ids = [x.strip() for x in raw.split(",") if x.strip()]
     if exclude is not None:
@@ -122,7 +122,7 @@ def _parse_channel_ids(env_name: str, exclude: Optional[str] = None) -> list[str
     return uniq
 
 
-def _extract_primary_channel(product_id: str) -> str:
+async def _extract_primary_channel(product_id: str) -> str:
     # ожидаем формат "1-232324"
     parts = product_id.split("-", 1)
     if len(parts) != 2 or not parts[0] or not parts[1]:
@@ -132,7 +132,7 @@ def _extract_primary_channel(product_id: str) -> str:
     return parts[0]
 
 
-def _resolve_product_for_office(
+async def _resolve_product_for_office(
     primary_product_id: str,
     primary_channel: str,
     office_id: str,
@@ -140,11 +140,30 @@ def _resolve_product_for_office(
     """Возвращает артикул услуги для конкретного филиала."""
     if office_id == primary_channel:
         return primary_product_id
-    return read_secondary_article_by_primary(
+
+    logger.info("===_resolve_product_for_office===")
+
+    # ✅ ВАЖНО: Postgres/asyncpg хочет int, поэтому приводим
+    try:
+        primary_channel_int = int(primary_channel)
+        office_id_int = int(office_id)
+    except ValueError:
+        raise ValueError(
+            f"Invalid channel/office id. primary_channel={primary_channel!r}, office_id={office_id!r}"
+        )
+
+    product_for_office = await read_secondary_article_by_primary(
         primary_article=primary_product_id,
-        primary_channel=primary_channel,
-        secondary_channel=office_id,
+        primary_channel=primary_channel_int,
+        secondary_channel=office_id_int,
     )
+
+    logger.info(
+        "primary_product_id=%s office_id=%s product_for_office=%s",
+        primary_product_id, office_id, product_for_office
+    )
+    return product_for_office
+
 
 
 async def _fetch_slots_for_office(date: str, product_id_for_office: str) -> list[dict[str, Any]]:

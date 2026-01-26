@@ -21,6 +21,7 @@ from ..tools.remember_desired_date import tool_remember_desired_date  # type: ig
 from ..tools.remember_desired_time import tool_remember_desired_time  # type: ignore
 from ..tools.avaliable_time_for_master import tool_avaliable_time_for_master  # type: ignore
 from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
+from ..tools.get_client_records import tool_records  # type: ignore
 
 
 async def build_mcp_valentina() -> FastMCP:
@@ -38,6 +39,7 @@ async def build_mcp_valentina() -> FastMCP:
         name="Valentina",
         mounts=[
             (tool_faq, "zena"),
+            (tool_records, "zena"),
             (tool_services, "zena"),
             (tool_record_time, "zena"),
             (tool_recommendations, "zena"),

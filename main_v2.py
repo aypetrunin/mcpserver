@@ -31,6 +31,8 @@ from fastmcp import FastMCP
 # - init_pg_pool() должен вызываться РОВНО 1 раз при старте процесса
 # - close_pg_pool() должен вызываться РОВНО 1 раз при остановке процесса
 from src.postgres.db_pool import init_pg_pool, close_pg_pool
+from src.clients import init_clients, close_clients
+
 
 # init_runtime() — единая функция загрузки env (вне Docker)
 from src.runtime import init_runtime
@@ -217,6 +219,10 @@ async def main() -> None:
         # Пробрасываем исключение дальше: процесс завершится, Docker/K8s перезапустит.
         raise
 
+    logger.info("initializing http clients")
+    await init_clients()
+
+
     # ----------------------------------------------------------------------
     # ШАГ 2. STOP-EVENT ДЛЯ GRACEFUL SHUTDOWN
     # ----------------------------------------------------------------------
@@ -346,6 +352,10 @@ async def main() -> None:
         # 5.3 Закрываем Postgres pool ВСЕГДА
         logger.info("closing postgres pool")
         await close_pg_pool()
+        
+        logger.info("closing http clients")
+        await close_clients()
+
 
 
 # --------------------------------------------------------------------------

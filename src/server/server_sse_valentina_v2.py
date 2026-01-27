@@ -21,8 +21,10 @@ from ..tools.remember_desired_date import tool_remember_desired_date  # type: ig
 from ..tools.remember_desired_time import tool_remember_desired_time  # type: ignore
 from ..tools.avaliable_time_for_master import tool_avaliable_time_for_master  # type: ignore
 from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
-from ..tools.get_client_records import tool_records  # type: ignore
-
+from ..tools.class_client_records import MCPClientRecords
+from ..tools.delete_client_record import tool_record_delete  # type: ignore
+from ..tools.reschedule_client_record import tool_record_reschedule  # type: ignore
+from ..tools.call_administrator import tool_call_administrator  # type: ignore
 
 async def build_mcp_valentina() -> FastMCP:
     """
@@ -35,16 +37,22 @@ async def build_mcp_valentina() -> FastMCP:
     m = await MCPSearchProductFull.create(channel_ids=channel_ids)
     tool_product_search_valentina = m.get_tool()
 
+    r = await MCPClientRecords.create(channel_ids=channel_ids)
+    tool_records_valentina = r.get_tool()
+
     return build_mcp(
         name="Valentina",
         mounts=[
             (tool_faq, "zena"),
-            (tool_records, "zena"),
             (tool_services, "zena"),
             (tool_record_time, "zena"),
+            (tool_record_delete, "zena"),
             (tool_recommendations, "zena"),
             (tool_remember_office, "zena"),
             (tool_remember_master, "zena"),
+            (tool_record_reschedule, "zena"),
+            (tool_call_administrator, "zena"),
+            (tool_records_valentina, "zena"),
             (tool_remember_product_id, "zena"),
             (tool_product_search_valentina, "zena"),
             (tool_remember_desired_date, "zena"),

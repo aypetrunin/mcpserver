@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
     reraise=True,
 )
-async def delete_client_record(user_companychat: int, channel_id: int, record_id: int) -> dict:
+async def delete_client_record(user_companychat: int, office_id: int, record_id: int) -> dict:
     """Удаление записи на услугу."""
     logger.info("===crm.crm_delete_client_record===")
 
@@ -34,7 +34,7 @@ async def delete_client_record(user_companychat: int, channel_id: int, record_id
     try:
         payload = {
             "user_companychat": user_companychat,
-            "channel_id": channel_id,
+            "channel_id": office_id,
             "record_id": record_id,
         }
 

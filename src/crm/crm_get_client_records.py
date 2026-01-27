@@ -116,7 +116,7 @@ def response_format(response: Dict[str, Any], channel_id: str) -> PersonalRecord
                 "office_id": channel_id,
                 "master_id": master.get("id"),
                 "master_name": master.get("name"),
-                "product_id": product.get("id"),
+                "product_id": f'{str(channel_id )}-{product.get("id")}',
                 "product_name": product.get("name"),
             }
         )

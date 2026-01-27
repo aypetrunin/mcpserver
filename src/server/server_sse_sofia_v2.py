@@ -23,6 +23,7 @@ from ..tools.avaliable_time_for_master import tool_avaliable_time_for_master  # 
 from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
 from ..tools.class_client_records import MCPClientRecords
 from ..tools.delete_client_record import tool_record_delete  # type: ignore
+from ..tools.reschedule_client_record import tool_record_reschedule
 
 
 async def build_mcp_sofia() -> FastMCP:
@@ -48,6 +49,7 @@ async def build_mcp_sofia() -> FastMCP:
             (tool_remember_office, "zena"),
             (tool_remember_master, "zena"),
             (tool_recommendations, "zena"),
+            (tool_record_reschedule, "zena"),
             (tool_remember_product_id, "zena"),
             (tool_product_search_sofia, "zena"),
             (tool_remember_desired_date, "zena"),

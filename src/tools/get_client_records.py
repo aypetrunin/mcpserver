@@ -22,7 +22,7 @@ tool_records = FastMCP(name="records")
         "- В каком офисе у меня запись?\n\n"
         "**Args:**\n"
         "- `user_companychat` (`str`, required): ID пользователя.\n"
-        "- `channel_id` (`str`, required): ID канала.\n\n"
+        "- `channel_id` (`str`, required): ID филиала.\n\n"
         "**Returns:**\n"
         "- `dict`\n"
     ),

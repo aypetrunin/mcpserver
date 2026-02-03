@@ -112,16 +112,16 @@ async def avaliable_time_for_master_list_async(
 
     # Комплекс
     resp_json_modify  = update_services_in_sequences(resp_json)
-    available_sequences = resp_json_modify.get("result", {}).get("available_sequences")
-    if available_sequences and isinstance(available_sequences, list):
+    avaliable_sequences = resp_json_modify.get("result", {}).get("avaliable_sequences")
+    if avaliable_sequences and isinstance(avaliable_sequences, list):
         # Список для выбора времени.
         sequences_list = [
             {'sequence_id': seq['sequence_id'], 'start_time': seq['total_start_time']}
-            for seq in available_sequences
+            for seq in avaliable_sequences
         ]
         # Список комплекса по которому нужно записать отдельно услуги.
-        available_sequences_short_list = avaliable_sequences_short(available_sequences)
-        return sequences_list, available_sequences_short_list
+        avaliable_sequences_short_list = avaliable_sequences_short(avaliable_sequences)
+        return sequences_list, avaliable_sequences_short_list
 
     return [], []
 
@@ -134,8 +134,8 @@ def update_services_in_sequences(data: dict[str, Any]) -> dict[str, Any]:
         '2950609': {'master_id': '914499', 'master_name': 'Ролик'},
         '2950603': {'master_id': '914503', 'master_name': 'Токовые Процедуры'}
     }
-    # Оригинальная структура с доступом к available_sequences
-    for seq in data['result']['available_sequences']:
+    # Оригинальная структура с доступом к avaliable_sequences
+    for seq in data['result']['avaliable_sequences']:
         for step in seq['steps']:
             rid = step['service_id']
             if rid in replacements:
@@ -143,7 +143,7 @@ def update_services_in_sequences(data: dict[str, Any]) -> dict[str, Any]:
                 step['master_name'] = replacements[rid]['master_name']
     return data
 
-def avaliable_sequences_short(available_sequences: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def avaliable_sequences_short(avaliable_sequences: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Получение из полного списка данных укороченного списка достаточного для записи на услуги."""
     result = [
         {
@@ -159,7 +159,7 @@ def avaliable_sequences_short(available_sequences: list[dict[str, Any]]) -> list
                 for step in seq['steps']
             ]
         }
-        for seq in available_sequences
+        for seq in avaliable_sequences
     ]
     return result
 

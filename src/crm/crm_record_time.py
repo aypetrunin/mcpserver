@@ -83,37 +83,6 @@ async def record_time_async(
     )
     logger.info("Проверка доступности времени - НЕТ")
 
-    # Проверка доступности времени
-    # try:
-    #     available_slots = await avaliable_time_for_master_async(
-    #         date=date, service_id=product_id
-    #     )
-    #     logger.info(f"available_slots: {available_slots}")
-    # except Exception as e:
-    #     logger.error(
-    #         "Не удалось получить доступные слоты для service_id=%s: %s", product_id, e
-    #     )
-    #     return {"success": False, "error": "Не удалось проверить доступность времени"}
-
-    # master_slots = next(
-    #     (
-    #         m.get("master_slots", [])
-    #         for m in available_slots
-    #         if m.get("master_id") == staff_id
-    #     ),
-    #     [],
-    # )
-
-    # if requested_datetime not in master_slots:
-    #     logger.warning(
-    #         f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}"
-    #     )
-    #     return {
-    #         "success": False,
-    #         "error": f"Дата и время {requested_datetime} недоступны для записи у mastrer_id={staff_id}",
-    #         "available_slots": master_slots,
-    #     }
-
     # Отправка запроса на запись
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:

@@ -37,7 +37,7 @@ tool_avaliable_time_for_master = FastMCP(name="avaliable_time_for_master")
         "list[dict]: Список доступных слотов на услугу в формате DD.MM.YYYY-MM-DD  по мастерам [{'master_name': 'Кузнецова Кристина Александровна', 'master_id': 4216657, 'master_slots': ['2025-09-26 9:00', '2025-09-26 10:00', '2025-09-26 10:30']}]"
     ),
 )
-async def available_time_for_master(
+async def avaliable_time_for_master(
     session_id: str,
     office_id: str,
     date: str,
@@ -45,7 +45,7 @@ async def available_time_for_master(
 ) -> list[dict[str, Any]]:
     """Функция поиска свободных слотов."""
     logger.info(
-        "mcp_available_time_for_master office_id=%s date=%s product_id=%s",
+        "mcp_avaliable_time_for_master office_id=%s date=%s product_id=%s",
         office_id, date, product_id,
     )
 
@@ -65,7 +65,7 @@ async def available_time_for_master(
 
     response_list.append({
         "office_id": office_id,
-        "available_time": response,
+        "avaliable_time": response,
         "message": f"Есть доступное время для записи в филиале: {office_id}" if response else f"Нет доступного время для записи в филиале: {office_id}"
     })
 
@@ -93,14 +93,14 @@ async def available_time_for_master(
                     logger.warning("slots fetch failed for office_id=%s: %s", oid, res)
                     response_list.append({
                         "office_id": oid,
-                        "available_time": [],
+                        "avaliable_time": [],
                         "message": f"Нет доступного время для записи в филиале: {oid}",
                     })
                     continue
 
                 response_list.append({
                     "office_id": oid,
-                    "available_time": res,
+                    "avaliable_time": res,
                     "message": f"Есть доступное время для записи в филиале {oid}" if res else f"Нет доступного время для записи в филиале: {oid}",
                 })
 

@@ -68,7 +68,7 @@ async def avaliable_time_for_master_async(
 
     except httpx.TimeoutException as e:
         logger.error(
-            "Timeout while fetching available time for service_id=%s: %s", service_id, e
+            "Timeout while fetching avaliable time for service_id=%s: %s", service_id, e
         )
         raise  # Повторная попытка через tenacity
 

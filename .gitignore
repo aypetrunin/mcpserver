@@ -1,6 +1,7 @@
 dump2.py
 _review_dump1.txt
 _review_dump.txt
+_review_dump_mcpserver.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

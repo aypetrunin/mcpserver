@@ -52,19 +52,19 @@ async def avaliable_time_for_master(
     session_id: str, date: str, product_id: list[str], product_name: list[str]
 ) -> tuple[list[dict], list[dict]]:
     """Функция поска свободных слотов."""
-    print("=======mcp_available_time_for_master_list===========")
+    print("=======mcp_avaliable_time_for_master_list===========")
     list_products_id = ', '.join(product_id)
     list_products_name = ', '.join(product_name)
     print(f"list_products_id: {list_products_id}")
     print(f"list_products_name: {list_products_name}")
     
-    sequences, available_sequences = await avaliable_time_for_master_list_async(
+    sequences, avaliable_sequences = await avaliable_time_for_master_list_async(
         date = date,
         service_id = list_products_id,
         service_name = list_products_name,
     )
     
     print(f"sequences: {sequences}")
-    print(f"available_sequences: {available_sequences}")
+    print(f"avaliable_sequences: {avaliable_sequences}")
 
-    return sequences, available_sequences
+    return sequences, avaliable_sequences

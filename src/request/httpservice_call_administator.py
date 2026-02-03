@@ -46,7 +46,7 @@ httpservice.ai2b.pro.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TypedDict, Any
 
 import httpx
 
@@ -64,19 +64,35 @@ S = get_settings()
 HISTORY_OUTGOING_PATH = "/v1/telegram/n8n/outgoing"
 
 # Итоговый URL строим через settings, чтобы домен можно было менять через env.
-URL_OUTGOING = f"{S.CRM_BASE_URL}{HISTORY_OUTGOING_PATH}"
+URL_OUTGOING = URL_OUTGOING = f"{S.CRM_BASE_URL.rstrip('/')}{HISTORY_OUTGOING_PATH}"
+
+class HttpServiceAdministratorPayload(TypedDict):
+    user_id: int
+    user_companychat: int
+    reply_to_history_id: int
+    access_token: str
+    text: str
+    tokens: dict[str, Any]
+    tools: list[str]
+    tools_args: dict[str, Any]
+    tools_result: dict[str, Any]
+    prompt_system: str
+    template_prompt_system: str
+    dialog_state: str
+    dialog_state_new: str
+    call_manager: bool
 
 
-async def httpservice_call_administator(
+async def httpservice_call_administrator(
     user_id: int,
     user_companychat: int,
     reply_to_history_id: int,
     access_token: str,
     text: str = "Клиент просит администратора.",
-    tokens: dict[str, Any] = {},
-    tools: list[str] = [],
-    tools_args: dict[str, Any] = {},
-    tools_result: dict[str, Any] = {},
+    tokens: dict[str, Any] | None = None,
+    tools: list[str] | None = None,
+    tools_args: dict[str, Any] | None = None,
+    tools_result: dict[str, Any] | None = None,
     prompt_system: str = "",
     template_prompt_system: str = "",
     dialog_state: str = "",
@@ -89,7 +105,13 @@ async def httpservice_call_administator(
     Мы оставляем большую сигнатуру, чтобы не менять код во всём проекте.
     Внутри собираем payload и передаём в низкоуровневую функцию отправки.
     """
-    payload: dict[str, Any] = {
+    # защита от mutable default arguments
+    tokens = tokens or {}
+    tools = tools or []
+    tools_args = tools_args or {}
+    tools_result = tools_result or {}
+
+    payload: HttpServiceAdministratorPayload  = {
         "user_id": user_id,
         "user_companychat": user_companychat,
         "reply_to_history_id": reply_to_history_id,
@@ -105,11 +127,24 @@ async def httpservice_call_administator(
         "dialog_state_new": dialog_state_new,
         "call_manager": call_manager,
     }
-    return await _call_administator_payload(payload)
+
+    try:
+        await _call_administrator_payload(payload)
+        return {"success": True, "data": "Администратор вызван."}
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            "httpservice http error status=%s body=%s",
+            e.response.status_code,
+            e.response.text[:500],
+        )
+        return {"success": False, "error": f"status={e.response.status_code}", "details": e.response.text[:500]}
+    except httpx.RequestError as e:
+        logger.warning("httpservice request error: %s", str(e))
+        return {"success": False, "error": "network_error", "details": str(e)}
 
 
 @CRM_HTTP_RETRY
-async def _call_administator_payload(payload: dict[str, Any]) -> dict[str, Any]:
+async def _call_administrator_payload(payload: HttpServiceAdministratorPayload) -> None:
     """
     Низкоуровневая функция, которая реально делает HTTP запрос.
 
@@ -130,25 +165,11 @@ async def _call_administator_payload(payload: dict[str, Any]) -> dict[str, Any]:
     # headers = {"Authorization": f"Bearer {payload['access_token']}", "Accept": "application/json"}
     # Но сейчас ваш API принимает access_token в JSON — поэтому headers не нужны.
 
-    try:
-        resp = await client.post(
-            URL_OUTGOING,
-            json=payload,
-            # Таймаут берём из settings (единый стандарт).
-            timeout=httpx.Timeout(S.CRM_HTTP_TIMEOUT_S),
-        )
-        resp.raise_for_status()
-        responce = resp.json()
-        logger.info(f"responce: {responce}")
-        return {"success": True, "data": "Администртор вызван."}
-
-    except httpx.HTTPStatusError as e:
-        # Сюда попадём, если:
-        # - был 4xx/5xx и попытки retry закончились
-        # - или статус не ретраибл (например 400/401/403/404)
-        logger.warning(
-            "httpservice возвращенная ошибка status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
-        )
-        return {"success": False, "data": {e}}
+    resp = await client.post(
+        URL_OUTGOING,
+        json=payload,
+        # Таймаут берём из settings (единый стандарт).
+        timeout=httpx.Timeout(S.CRM_HTTP_TIMEOUT_S),
+    )
+    resp.raise_for_status()
+    return None

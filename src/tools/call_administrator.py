@@ -3,7 +3,7 @@
 from typing import Any, Dict
 from fastmcp import FastMCP
 
-from ..request.httpservice_call_administator import httpservice_call_administator  # type: ignore
+from ..request.httpservice_call_administrator import httpservice_call_administrator  # type: ignore
 
 tool_call_administrator = FastMCP(name="call_administrator")
 
@@ -35,7 +35,7 @@ async def call_administrator(
 ) -> Dict[str, Any]:
     """Функция удаления услуги."""
     try:
-        return await httpservice_call_administator(
+        return await httpservice_call_administrator(
             user_companychat=int(user_companychat),
             user_id=int(user_id),
             reply_to_history_id=int(reply_to_history_id),

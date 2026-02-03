@@ -49,6 +49,7 @@ from src.server.server_sse_alena_v2 import build_mcp_alena
 from src.server.server_sse_annitta_v2 import build_mcp_annitta
 from src.server.server_sse_anastasia_v2 import build_mcp_anastasia
 from src.server.server_sse_valentina_v2 import build_mcp_valentina
+from src.server.server_sse_marina_v2 import build_mcp_marina
 
 
 # --------------------------------------------------------------------------
@@ -67,4 +68,5 @@ SERVERS: list[ServerSpec] = [
     ServerSpec("annitta", "MCP_PORT_ANNITTA", build_mcp_annitta),
     ServerSpec("anastasia", "MCP_PORT_ANASTASIA", build_mcp_anastasia),
     ServerSpec("valentina", "MCP_PORT_VALENTINA", build_mcp_valentina),
+    ServerSpec("marina", "MCP_PORT_MARINA", build_mcp_marina),
 ]

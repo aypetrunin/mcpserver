@@ -64,7 +64,7 @@ S = get_settings()
 HISTORY_OUTGOING_PATH = "/v1/telegram/n8n/outgoing"
 
 # Итоговый URL строим через settings, чтобы домен можно было менять через env.
-URL_OUTGOING = URL_OUTGOING = f"{S.CRM_BASE_URL.rstrip('/')}{HISTORY_OUTGOING_PATH}"
+URL_OUTGOING  = f"{S.CRM_BASE_URL.rstrip('/')}{HISTORY_OUTGOING_PATH}"
 
 class HttpServiceAdministratorPayload(TypedDict):
     user_id: int
@@ -105,6 +105,8 @@ async def httpservice_call_administrator(
     Мы оставляем большую сигнатуру, чтобы не менять код во всём проекте.
     Внутри собираем payload и передаём в низкоуровневую функцию отправки.
     """
+    logger.info("httpservice_call_administrator")
+
     # защита от mutable default arguments
     tokens = tokens or {}
     tools = tools or []
@@ -157,8 +159,7 @@ async def _call_administrator_payload(payload: HttpServiceAdministratorPayload) 
 
     Если ошибка "логическая" (например 401/403/404/400) — retry не делается.
     """
-    logger.info("httpservice_call_administator.call_administator")
-    
+   
     client = get_http()
 
     # Если когда-нибудь решите передавать токен через заголовок:

@@ -14,7 +14,7 @@ class MCPSearchProductQuery:
 
     def __init__(self, channel_ids: list[str]) -> None:
         """Инициализация экземпляра класса mcp-сервера."""
-        self.channel_ids: str = channel_ids
+        self.channel_ids: list[str] = channel_ids
         self.description:str = self._set_description()
         self.tool_product_search: FastMCP = FastMCP(name="product_search")
         self._register_tool()
@@ -73,7 +73,7 @@ class MCPSearchProductQuery:
                     query=query,
                 ) 
                 logger.info(f"\n\nОтвет от 'product_search(channel_id:{channel_id})':\n{response}\n")
-            self._add_unique_by_product_name(list_response, response)
+                self._add_unique_by_product_name(list_response, response)
 
             return list_response
         return product_search
@@ -84,7 +84,7 @@ class MCPSearchProductQuery:
 
 
 if __name__=="__main__":
-    mcp = MCPSearchProductQuery(channel_id='1')
+    mcp = MCPSearchProductQuery(channel_id=['1'])
     print(mcp.get_description())
 
 

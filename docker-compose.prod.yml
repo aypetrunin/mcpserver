@@ -11,6 +11,7 @@ services:
       - "${MCP_PORT_ANASTASIA}:${MCP_PORT_ANASTASIA}"
       - "${MCP_PORT_ALENA}:${MCP_PORT_ALENA}"
       - "${MCP_PORT_VALENTINA}:${MCP_PORT_VALENTINA}"
+      - "${MCP_PORT_MARINA}:${MCP_PORT_MARINA}"
     restart: unless-stopped
     networks:
       - zena-network

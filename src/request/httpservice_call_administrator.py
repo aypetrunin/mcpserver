@@ -1,5 +1,5 @@
 """
-history_httpservice.py
+httpservice_call_administrator.py
 
 Назначение (для новичка)
 ========================
@@ -51,16 +51,13 @@ from typing import TypedDict, Any
 import httpx
 
 from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
 from src.settings import get_settings
+from src.http_retry import CRM_HTTP_RETRY
 
 logger = logging.getLogger(__name__)
 
-# Читаем settings один раз на модуль.
-# Это нормально в вашем проекте, т.к. init_runtime() гарантированно вызывается раньше в main.
 S = get_settings()
 
-# Путь endpoint-а (это "часть протокола", а не часть окружения)
 HISTORY_OUTGOING_PATH = "/v1/telegram/n8n/outgoing"
 
 # Итоговый URL строим через settings, чтобы домен можно было менять через env.

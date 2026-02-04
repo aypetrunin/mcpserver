@@ -1,5 +1,6 @@
 """Модуль функции ретривера поиска услуг по zena2_products_services_view."""
 
+import logging
 import asyncio
 import os
 from typing import Any, Dict, List, Union
@@ -11,10 +12,11 @@ from qdrant_client.models import FieldCondition
 from .retriever_common import (
     ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
     get_bm25_model,  # Sparse-векторная модель BM25 (fastembed)
-    logger,  # Логгер для записи шагов и результатов
     get_qdrant_client,  # Асинхронный клиент Qdrant
     retry_request,  # Надёжный вызов с повторными попытками
 )
+
+logger = logging.getLogger(__name__)
 
 # -------------------- Конфигурация --------------------
 COLLECTION_NAME = os.getenv(

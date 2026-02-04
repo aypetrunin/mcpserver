@@ -1,5 +1,22 @@
 # src/crm/crm_update_client_lesson.py
-"""Модуль переноса урока клиента (GO CRM)."""
+"""
+Модуль переноса урока клиента (GO CRM).
+
+Что исправлено относительно старой версии:
+-----------------------------------------
+1) Убрали S = get_settings() на уровне модуля.
+   Раньше settings читались при импорте файла → могло ломаться, если init_runtime()
+   ещё не вызывался (тесты/скрипты/другой entrypoint).
+
+2) Убрали URL_RESCHEDULE как глобальную константу, построенную из settings.
+   Теперь URL строим лениво в момент HTTP-вызова через crm_url().
+
+3) Таймаут берём единообразно через crm_timeout_s() (лениво).
+
+Дополнительно:
+- Убраны ссылки вида ":contentReference[oaicite:...]" — это артефакты, не относящиеся к вашему репозиторию.
+- Бизнес-логика переносов сохранена.
+"""
 
 from __future__ import annotations
 
@@ -11,16 +28,14 @@ import httpx
 
 from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
-from src.settings import get_settings
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 from .crm_get_client_statistics import go_get_client_statisics
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
+# Относительный путь к методу GO CRM (безопасная константа)
 RESCHEDULE_PATH = "/appointments/go_crm/reschedule_record"
-URL_RESCHEDULE = f"{S.CRM_BASE_URL.rstrip('/')}{RESCHEDULE_PATH}"
 
 
 class ErrorResponse(TypedDict):
@@ -37,6 +52,7 @@ ResponsePayload = ErrorResponse | SuccessResponse
 
 
 def _log_and_build_input_error(param_name: str, value: Any) -> ErrorResponse:
+    """Единая форма ошибки на неверных входных параметрах."""
     logger.warning("Не указан или неверный тип '%s': %r", param_name, value)
     return ErrorResponse(
         success=False,
@@ -45,10 +61,17 @@ def _log_and_build_input_error(param_name: str, value: Any) -> ErrorResponse:
 
 
 def _validate_str_param(value: Any) -> bool:
+    """True только для непустой строки."""
     return isinstance(value, str) and bool(value.strip())
 
 
 def normalize_date(value: Optional[str]) -> Optional[str]:
+    """
+    Приводим дату к формату DD.MM.YYYY.
+
+    GO CRM иногда отдаёт YYYY-MM-DD.
+    Мы поддерживаем оба и нормализуем в единый формат.
+    """
     if not value:
         return None
 
@@ -69,10 +92,16 @@ async def _reschedule_record_payload(payload: dict[str, Any], timeout_s: float) 
     - timeout / network error
     - HTTP 429
     - HTTP 5xx
+
+    Важно:
+    - URL строим лениво через crm_url(RESCHEDULE_PATH),
+      поэтому settings не читаются при импорте модуля.
     """
     client = get_http()
+    url = crm_url(RESCHEDULE_PATH)
+
     resp = await client.post(
-        URL_RESCHEDULE,
+        url,
         json=payload,
         timeout=httpx.Timeout(timeout_s),
     )
@@ -95,8 +124,12 @@ async def go_update_client_lesson(
     reason: str,
     timeout: float = 0.0,
 ) -> ResponsePayload:
-    """Перенос урока на другую дату и время (GO CRM)."""
+    """
+    Перенос урока на другую дату и время (GO CRM).
 
+    Параметры:
+    - timeout: если >0 — используем его, иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+    """
     logger.info("=== crm_go.go_update_client_lesson ===")
 
     # ---- валидация входных ----
@@ -120,7 +153,7 @@ async def go_update_client_lesson(
         return ErrorResponse(success=False, error=f"Неверный формат даты: {new_date}. Ожидается DD.MM.YYYY")
 
     # ---- бизнес-ограничение по переносам (как в исходнике) ----
-    # В исходнике логика опирается на end_date и next_transfer_after из статистики. :contentReference[oaicite:1]{index=1}
+    # Логика опирается на end_date и next_transfer_after из статистики.
     statistic = await go_get_client_statisics(phone=phone, channel_id=channel_id)
     abonent_end_date = None
     next_transfer_after = None
@@ -131,11 +164,10 @@ async def go_update_client_lesson(
             abonent_end_date = msg.get("end_date")
             next_transfer_after = msg.get("next_transfer_after")
 
-    transfer_date = None
+    # Дата переноса (то, куда хотим перенести занятие)
     try:
         transfer_date = datetime.strptime(normalized_new_date, "%d.%m.%Y")
     except ValueError:
-        # уже проверили выше, но на всякий
         return ErrorResponse(success=False, error=f"Неверный формат даты: {new_date}. Ожидается DD.MM.YYYY")
 
     abonent_end_dt = None
@@ -153,8 +185,9 @@ async def go_update_client_lesson(
             next_transfer_after,
         )
 
-    # Условие из исходника: если дата переноса не попадает ни "до конца абонемента",
-    # ни "после даты следующего переноса" — блокируем. :contentReference[oaicite:2]{index=2}
+    # Условие из исходника:
+    # если дата переноса не попадает ни "до конца абонемента",
+    # ни "после даты следующего переноса" — блокируем.
     if abonent_end_dt and next_transfer_dt:
         if not (transfer_date <= abonent_end_dt or transfer_date >= next_transfer_dt):
             msg = (
@@ -175,7 +208,7 @@ async def go_update_client_lesson(
         "reason": reason.strip(),
     }
 
-    effective_timeout = timeout or float(S.CRM_HTTP_TIMEOUT_S)
+    effective_timeout = crm_timeout_s(timeout)
 
     try:
         resp_json = await _reschedule_record_payload(payload=payload, timeout_s=effective_timeout)
@@ -201,7 +234,6 @@ async def go_update_client_lesson(
         return ErrorResponse(success=False, error="Неизвестная ошибка при обращении к GO CRM.")
 
     if resp_json.get("success") is not True:
-        # В исходнике тут возвращался dict в error — исправлено на str. :contentReference[oaicite:3]{index=3}
         return ErrorResponse(success=False, error="Ошибка переноса урока. Обратитесь к администратору.")
 
     api_new_date = str(resp_json.get("new_date", normalized_new_date))
@@ -211,7 +243,6 @@ async def go_update_client_lesson(
         success=True,
         message=f"Перенос урока выполнен успешно на {api_new_date} {api_new_time}!",
     )
-
 
 
 

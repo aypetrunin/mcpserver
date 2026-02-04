@@ -1,9 +1,31 @@
-"""Модуль записи на услугу на определенную дату и время.
+# src/crm/crm_record_time.py
+"""
+Модуль записи на услугу на определенную дату и время.
 
-Поиск ведется через API CRM gateway (CRM_BASE_URL).
+Поиск/запись ведется через API CRM gateway (CRM_BASE_URL).
+
+Что исправлено относительно старой версии:
+-----------------------------------------
+1) Убрали S = get_settings() на уровне модуля.
+   Раньше settings читались при импорте файла → могло ломаться, если init_runtime()
+   ещё не вызывался (тесты/скрипты/другой entrypoint).
+
+2) Убрали URL_CREATE_BOOKING как глобальную константу, построенную из settings.
+   Теперь дефолтный endpoint_url формируется лениво внутри record_time_async()
+   через crm_url(CREATE_BOOKING_PATH).
+
+   Важно: в Python значение параметра по умолчанию вычисляется при импорте модуля,
+   поэтому `endpoint_url: str = URL_CREATE_BOOKING` — это как раз "анти-лениво".
+
+3) Таймаут берём единообразно через crm_timeout_s():
+   - если timeout > 0 — используем его
+   - иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+
+Сигнатуру функции сохраняем максимально близкой:
+- endpoint_url всё ещё можно передать снаружи
+- если endpoint_url не задан — берём стандартный из settings
 """
 
-# src/crm/crm_record_time.py
 from __future__ import annotations
 
 import logging
@@ -12,15 +34,13 @@ from typing import Any, TypedDict
 import httpx
 
 from src.clients import get_http
-from src.settings import get_settings
 from src.http_retry import CRM_HTTP_RETRY
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
+# Относительный путь к методу CRM (безопасная константа, не зависит от env)
 CREATE_BOOKING_PATH = "/appointments/yclients/create_booking"
-URL_CREATE_BOOKING = f"{S.CRM_BASE_URL.rstrip('/')}{CREATE_BOOKING_PATH}"
 
 
 class RecordTimePayload(TypedDict, total=False):
@@ -45,18 +65,33 @@ async def record_time_async(
     comment: str | None = "Запись через API",
     notify_by_sms: int = 0,
     notify_by_email: int = 0,
-    endpoint_url: str = URL_CREATE_BOOKING,
+    endpoint_url: str | None = None,
     timeout: float = 0.0,
 ) -> dict[str, Any]:
     """
     Асинхронная запись пользователя на услугу через API.
 
-    Сигнатуру оставляем максимально близкой к текущей (чтобы не менять вызовы по проекту).
-    endpoint_url можно переопределить снаружи.
-    timeout если 0/не задан — используем S.CRM_HTTP_TIMEOUT_S.
-    """
+    Параметры:
+    - product_id: service_id (как у вас было)
+    - date: 'YYYY-MM-DD'
+    - time: 'HH:MM' (или то, что ждёт CRM)
+    - user_id: идентификатор пользователя (кастуем в str)
+    - staff_id: мастер (0 если не обязателен)
+    - channel_id: канал/филиал
+    - comment: комментарий
+    - notify_by_sms / notify_by_email: флаги уведомлений
+    - endpoint_url: можно переопределить снаружи.
+        Если None — используем стандартный URL из settings (лениво).
+    - timeout: если 0/не задан — используем settings.CRM_HTTP_TIMEOUT_S (лениво)
 
+    Почему endpoint_url теперь Optional:
+    - значение параметра по умолчанию в Python вычисляется при импорте.
+      Нам нельзя вычислять URL на уровне модуля, поэтому дефолт делаем внутри функции.
+    """
     logger.info("=== crm.crm_record_time_async ===")
+
+    # URL по умолчанию строим лениво здесь
+    url = endpoint_url or crm_url(CREATE_BOOKING_PATH)
 
     payload: RecordTimePayload = {
         "staff_id": int(staff_id),
@@ -78,11 +113,12 @@ async def record_time_async(
         staff_id,
     )
 
-    effective_timeout = timeout or float(S.CRM_HTTP_TIMEOUT_S)
+    # Таймаут — ленивый (берём из settings только при вызове)
+    effective_timeout = crm_timeout_s(timeout)
 
     try:
         resp_json = await _create_booking_payload(
-            url=endpoint_url,
+            url=url,
             payload=payload,
             timeout_s=effective_timeout,
         )
@@ -144,6 +180,10 @@ async def _create_booking_payload(
     - timeout / network error
     - HTTP 429
     - HTTP 5xx
+
+    Важно:
+    - сюда приходит уже "готовый" url (включая base_url),
+      который мы построили лениво в record_time_async().
     """
     client = get_http()
 
@@ -164,6 +204,7 @@ async def _create_booking_payload(
         raise ValueError(f"Неожиданный тип JSON из CRM: {type(data)}")
 
     return data
+
 
 
 

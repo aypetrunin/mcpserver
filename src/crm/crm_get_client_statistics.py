@@ -1,6 +1,25 @@
 # src/crm/crm_get_client_statistics.py
 from __future__ import annotations
 
+"""
+Получение статистики посещений клиента (GO CRM) + расчёт параметров абонемента.
+
+Что исправлено относительно старой версии:
+-----------------------------------------
+1) Убрали S = get_settings() на уровне модуля.
+   Раньше settings читались при импорте файла → могло ломаться, если init_runtime()
+   ещё не вызывался (тесты/скрипты/другой entrypoint).
+
+2) Убрали URL_CLIENT_INFO как глобальную константу, построенную из settings.
+   Теперь URL строим лениво в момент HTTP-вызова через crm_url().
+
+3) Таймаут берём единообразно через crm_timeout_s():
+   - если timeout > 0 — используем его
+   - иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+
+Бизнес-логика и формат ответа сохранены.
+"""
+
 import logging
 import re
 from datetime import datetime, timedelta
@@ -11,14 +30,12 @@ from dateutil.relativedelta import relativedelta
 
 from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
-from src.settings import get_settings
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
+# Относительный путь к методу GO CRM (безопасная константа)
 CLIENT_INFO_PATH = "/appointments/go_crm/client_info"
-URL_CLIENT_INFO = f"{S.CRM_BASE_URL.rstrip('/')}{CLIENT_INFO_PATH}"
 
 
 class ErrorResponse(TypedDict):
@@ -41,10 +58,16 @@ async def _fetch_client_info(payload: dict[str, Any], timeout_s: float) -> dict[
     - timeout / network error
     - HTTP 429
     - HTTP 5xx
+
+    Важно:
+    - URL строим лениво через crm_url(CLIENT_INFO_PATH),
+      поэтому settings не читаются при импорте модуля.
     """
     client = get_http()
+    url = crm_url(CLIENT_INFO_PATH)
+
     resp = await client.post(
-        URL_CLIENT_INFO,
+        url,
         json=payload,
         timeout=httpx.Timeout(timeout_s),
     )
@@ -61,8 +84,18 @@ async def go_get_client_statisics(
     channel_id: str = "20",
     timeout: float = 0.0,
 ) -> ResponsePayload:
-    """Получение статистических данных о посещении занятий клиента (GO CRM)."""
+    """
+    Получение статистических данных о посещении занятий клиента (GO CRM).
 
+    Параметры:
+    - phone: телефон клиента
+    - channel_id: id канала/филиала (по умолчанию "20")
+    - timeout: если >0 — используем его, иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+
+    Возвращает:
+    - {"success": True,  "message": {...}}  — успех
+    - {"success": False, "error": "..."}    — ошибка
+    """
     logger.info("=== crm.go_get_client_statisics ===")
 
     if not isinstance(phone, str) or not phone.strip():
@@ -72,7 +105,9 @@ async def go_get_client_statisics(
         return {"success": False, "error": "Не указан channel_id"}
 
     payload = {"channel_id": channel_id, "phone": phone}
-    effective_timeout = timeout or float(S.CRM_HTTP_TIMEOUT_S)
+
+    # Таймаут — ленивый (берём из settings только при вызове)
+    effective_timeout = crm_timeout_s(timeout)
 
     fallback_err = "Сервис GO CRM временно недоступен. Обратитесь к администратору."
 
@@ -81,6 +116,7 @@ async def go_get_client_statisics(
         logger.info("go_get_client_statisics resp_json=%s", resp_json)
 
     except httpx.HTTPStatusError as e:
+        # Сюда попадём, если retry исчерпан или статус неретраибельный (4xx кроме 429)
         logger.warning(
             "go_get_client_statisics http error status=%s body=%s",
             e.response.status_code,
@@ -89,6 +125,7 @@ async def go_get_client_statisics(
         return {"success": False, "error": fallback_err}
 
     except httpx.RequestError as e:
+        # Сюда попадём, если retry исчерпан по сетевым ошибкам
         logger.warning("go_get_client_statisics request error payload=%s: %s", payload, str(e))
         return {"success": False, "error": fallback_err}
 
@@ -103,6 +140,7 @@ async def go_get_client_statisics(
     if resp_json.get("success") is not True:
         msg = f"Нет данных в системе для channel_id={channel_id}, phone={phone}"
         logger.warning(msg)
+        # В оригинале возвращался fallback_err — сохраняем поведение
         return {"success": False, "error": fallback_err}
 
     visits = resp_json.get("visits", [])
@@ -113,7 +151,10 @@ async def go_get_client_statisics(
         return {
             "success": True,
             "message": {
-                "message": "У Вас еще нет посещений, абонемент начнет действовать с даты первого посещения в течении 30 дней."
+                "message": (
+                    "У Вас еще нет посещений, абонемент начнет действовать с даты первого посещения "
+                    "в течении 30 дней."
+                )
             },
         }
 
@@ -125,6 +166,17 @@ async def go_get_client_statisics(
 
 
 class AbonementCalculator:
+    """
+    Калькулятор абонемента на основе списка посещений.
+
+    Вход:
+    - records: список словарей, где каждый словарь — запись о посещении/событии.
+
+    Выход:
+    - словарь summary с параметрами абонемента:
+      total lessons, used, remaining, transfers и т.д.
+    """
+
     DATE_FMT = "%d.%m.%Y"
     RE_ABONEMENT = re.compile(r"х(\d+)\s*№(\d+)")
 
@@ -133,16 +185,24 @@ class AbonementCalculator:
 
     # ---------- helpers ----------
     def _parse_date(self, s: str) -> Optional[datetime]:
+        """Парсим дату вида 'DD.MM.YYYY'."""
         return datetime.strptime(s, self.DATE_FMT) if s else None
 
     def _format_date(self, dt: Optional[datetime]) -> Optional[str]:
+        """Форматируем datetime обратно в строку 'DD.MM.YYYY'."""
         return dt.strftime(self.DATE_FMT) if dt else None
 
     def _find_start_record(self) -> Optional[Dict[str, Any]]:
+        """Ищем стартовую запись абонемента."""
         # предпочтительно is_start, но поддержим и comment == 'СТАРТ'
         return next((r for r in self.records if r.get("is_start") or r.get("comment") == "СТАРТ"), None)
 
     def _parse_abonement_text(self, text: str) -> tuple[Optional[int], Optional[str]]:
+        """
+        Разбираем строку абонемента вида 'х10 №12345':
+        - lessons_total = 10
+        - abonement_number = '12345'
+        """
         m = self.RE_ABONEMENT.search(text or "")
         if not m:
             return None, None
@@ -150,6 +210,15 @@ class AbonementCalculator:
 
     # ---------- core ----------
     def calculate(self) -> Dict[str, Any]:
+        """
+        Основной расчёт абонемента.
+
+        Логика сохранена как в исходном коде:
+        - конец абонемента = старт + 30 дней
+        - used_lessons считаем по посещениям, исключая start/finish и makeup
+        - "переносы" = посещения после end_dt
+        - next_transfer_after зависит от transfers_used
+        """
         start_record = self._find_start_record()
 
         summary: Dict[str, Any] = {
@@ -174,6 +243,7 @@ class AbonementCalculator:
 
         start_dt = self._parse_date(start_record.get("date"))
         summary["start_date"] = self._format_date(start_dt)
+
         end_dt = start_dt + timedelta(days=30) if start_dt else None
         summary["end_date"] = self._format_date(end_dt)
 

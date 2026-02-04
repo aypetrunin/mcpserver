@@ -1,13 +1,13 @@
 """Универсальный клас создания mcp-сервера поиска услуг."""
 
+import logging
 from typing import Any
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
-from ..qdrant.retriever_common import logger  # type: ignore
 from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: ignore
 
-
+logger = logging.getLogger(__name__)
 
 class MCPSearchProductQuery:
     """Универсальный клас создания mcp-сервера поиска услуг."""

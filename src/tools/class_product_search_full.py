@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import textwrap
 from typing import Any
 
@@ -11,9 +12,9 @@ from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
 from ..postgres.postgres_util import select_key  # type: ignore
-from ..qdrant.retriever_common import logger  # type: ignore
 from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: ignore
 
+logger = logging.getLogger(__name__)
 
 class MCPSearchProductFull:
     """Универсальный клас создания mcp-сервера поиска услуг."""

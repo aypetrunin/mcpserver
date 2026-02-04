@@ -1,23 +1,38 @@
 # src/crm/crm_update_client_info.py
-"""Mодуль регистрации нового клиента в GO CRM."""
+"""
+Mодуль регистрации нового клиента в GO CRM.
+
+Что исправлено относительно старой версии:
+-----------------------------------------
+1) Убрали S = get_settings() на уровне модуля.
+   Раньше settings читались при импорте файла → могло ломаться, если init_runtime()
+   ещё не вызывался (тесты/скрипты/другой entrypoint).
+
+2) Убрали URL_CREATE_CLIENT как глобальную константу, построенную из settings.
+   Теперь URL строим лениво в момент HTTP-вызова через crm_url().
+
+3) Таймаут берём единообразно через crm_timeout_s():
+   - если timeout > 0 — используем его
+   - иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+
+Формат ответов (ErrorResponse/SuccessResponse) и бизнес-логика сохранены.
+"""
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, TypedDict, Optional
+from typing import Any, Literal, TypedDict
 
 import httpx
 
 from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
-from src.settings import get_settings
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
+# Относительный путь к методу GO CRM (безопасная константа)
 CREATE_CLIENT_PATH = "/appointments/go_crm/create_client"
-URL_CREATE_CLIENT = f"{S.CRM_BASE_URL.rstrip('/')}{CREATE_CLIENT_PATH}"
 
 
 class ErrorResponse(TypedDict):
@@ -34,6 +49,7 @@ ResponsePayload = ErrorResponse | SuccessResponse
 
 
 def _log_and_build_input_error(param_name: str, value: Any) -> ErrorResponse:
+    """Единая форма ошибки на неверных входных параметрах."""
     logger.warning("Не указан или неверный тип '%s': %r", param_name, value)
     return ErrorResponse(
         success=False,
@@ -42,6 +58,7 @@ def _log_and_build_input_error(param_name: str, value: Any) -> ErrorResponse:
 
 
 def _validate_str_param(name: str, value: Any) -> bool:
+    """True только для непустой строки."""
     return isinstance(value, str) and bool(value.strip())
 
 
@@ -52,10 +69,16 @@ async def _create_client_payload(payload: dict[str, Any], timeout_s: float) -> d
     - timeout / network error
     - HTTP 429
     - HTTP 5xx
+
+    Важно:
+    - URL строим лениво через crm_url(CREATE_CLIENT_PATH),
+      поэтому settings не читаются при импорте модуля.
     """
     client = get_http()
+    url = crm_url(CREATE_CLIENT_PATH)
+
     resp = await client.post(
-        URL_CREATE_CLIENT,
+        url,
         json=payload,
         timeout=httpx.Timeout(timeout_s),
     )
@@ -78,12 +101,16 @@ async def go_update_client_info(
     contact_reason: str,
     timeout: float = 0.0,
 ) -> ResponsePayload:
-    """Регистрация нового клиента в GO CRM."""
+    """
+    Регистрация нового клиента в GO CRM.
 
+    Параметры:
+    - timeout: если >0 — используем его, иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+    """
     logger.info("=== crm_go.go_update_client_info ===")
 
-    # В текущем файле user_id не валидировался, хотя он обязателен в payload
-    # (оставляю строгую проверку, чтобы не отправлять мусор в CRM).
+    # В текущем файле user_id не валидировался, хотя он обязателен в payload.
+    # Оставляем строгую проверку, чтобы не отправлять мусор в CRM.
     for name, value in (
         ("user_id", user_id),
         ("channel_id", channel_id),
@@ -108,7 +135,7 @@ async def go_update_client_info(
         "comment": f"Создан через API. Причина обращения: {contact_reason.strip()}",
     }
 
-    effective_timeout = timeout or float(S.CRM_HTTP_TIMEOUT_S)
+    effective_timeout = crm_timeout_s(timeout)
 
     try:
         resp_json = await _create_client_payload(payload=payload, timeout_s=effective_timeout)
@@ -147,7 +174,6 @@ async def go_update_client_info(
         )
 
     if resp_json.get("success") is not True:
-        # В старом коде тут возвращался error={"message": msg} — это ломало типы.
         return ErrorResponse(
             success=False,
             error="Ошибка создания нового клиента в GO CRM. Обратитесь к администратору.",

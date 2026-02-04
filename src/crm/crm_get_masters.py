@@ -1,5 +1,22 @@
 # src/crm/crm_get_masters.py
-"""Модуль получения списка мастеров из CRM."""
+"""
+Модуль получения списка мастеров из CRM.
+
+Что исправлено относительно старой версии:
+-----------------------------------------
+1) Убрали S = get_settings() на уровне модуля.
+   Раньше settings читались при импорте файла → могло ломаться, если init_runtime()
+   ещё не вызывался (тесты/скрипты/другой entrypoint).
+
+2) Убрали URL_MASTERS как глобальную константу, построенную из settings.
+   Теперь URL строим лениво в момент HTTP-вызова через crm_url().
+
+3) Таймаут берём единообразно через crm_timeout_s():
+   - если timeout > 0 — используем его
+   - иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+
+Формат результата (Payload, ok/err) сохранён.
+"""
 
 from __future__ import annotations
 
@@ -9,17 +26,15 @@ from typing import Any, Literal, TypedDict, cast
 import httpx
 
 from src.clients import get_http
-from src.settings import get_settings
 from src.http_retry import CRM_HTTP_RETRY
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 from .crm_result import Payload, err, ok
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
+# Относительный путь к методу CRM (безопасная константа)
 MASTERS_PATH = "/appointments/yclients/staff/actual"
-URL_MASTERS = f"{S.CRM_BASE_URL.rstrip('/')}{MASTERS_PATH}"
 
 
 # -------------------- Типы ответа CRM --------------------
@@ -43,20 +58,25 @@ async def _fetch_masters_payload(payload: dict[str, Any], timeout_s: float) -> d
     - timeout / network error
     - HTTP 429
     - HTTP 5xx
+
+    Важно:
+    - URL строим лениво через crm_url(MASTERS_PATH),
+      поэтому settings не читаются при импорте модуля.
     """
     client = get_http()
+    url = crm_url(MASTERS_PATH)
+
     resp = await client.post(
-        URL_MASTERS,
+        url,
         json=payload,
         timeout=httpx.Timeout(timeout_s),
     )
     resp.raise_for_status()
 
     data = resp.json()
-    
     if not isinstance(data, dict):
         raise ValueError(f"Неожиданный тип JSON из CRM: {type(data)}")
-    
+
     return data
 
 
@@ -77,7 +97,9 @@ async def get_masters(
     logger.info("Получение списка мастеров channel_id=%s", channel_id)
 
     payload = {"channel_id": channel_id}
-    effective_timeout = timeout or float(S.CRM_HTTP_TIMEOUT_S)
+
+    # Таймаут: либо параметр timeout, либо из settings (лениво)
+    effective_timeout = crm_timeout_s(timeout)
 
     try:
         resp_any = await _fetch_masters_payload(payload=payload, timeout_s=effective_timeout)
@@ -128,8 +150,6 @@ async def get_masters(
             )
 
     return ok(masters)
-
-
 
 
 # crm_get_masters.py

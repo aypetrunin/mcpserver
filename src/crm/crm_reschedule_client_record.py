@@ -8,14 +8,11 @@ import httpx
 
 from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
-from src.settings import get_settings
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
 RESCHEDULE_PATH = "/appointments/client/records/reschedule"
-URL_RESCHEDULE = f"{S.CRM_BASE_URL.rstrip('/')}{RESCHEDULE_PATH}"
 
 
 class RescheduleClientRecordPayload(TypedDict):
@@ -48,14 +45,16 @@ async def reschedule_client_record(
     """
     Перенос услуги пользователя на другую дату и время.
 
-    Сигнатуру сохраняем максимально близкой к текущей, чтобы не менять вызовы.
-    endpoint_url можно переопределять, но по умолчанию берём из settings + RESCHEDULE_PATH.
-    timeout параметр оставлен для совместимости; если он 0/не задан — берём S.CRM_HTTP_TIMEOUT_S.
+    Важно:
+    - НИКАКИХ get_settings() на уровне модуля.
+    - URL и timeout считаются лениво:
+        - если endpoint_url передан — используем его
+        - иначе строим из settings в момент вызова
     """
     logger.info("=== crm.crm_reschedule_client_record ===")
 
-    url = endpoint_url or URL_RESCHEDULE
-    effective_timeout = timeout or S.CRM_HTTP_TIMEOUT_S
+    url = endpoint_url or crm_url(RESCHEDULE_PATH)
+    effective_timeout = crm_timeout_s(timeout)
 
     payload: RescheduleClientRecordPayload = {
         "user_companychat": user_companychat,
@@ -78,17 +77,7 @@ async def reschedule_client_record(
         status = e.response.status_code
         body = e.response.text
 
-        # В старом коде 5xx поднимали исключение для retry.
-        # Теперь retry делает @CRM_HTTP_RETRY на низком уровне,
-        # а сюда попадём только если retry не сработал/исчерпан или это 4xx.
         logger.error("CRM HTTP %d. payload=%s body=%s", status, payload, body[:800])
-
-        if 400 <= status <= 499:
-            return {
-                "success": False,
-                "error": f"HTTP ошибка: {status}",
-                "details": body[:800],
-            }
 
         return {
             "success": False,
@@ -97,7 +86,6 @@ async def reschedule_client_record(
         }
 
     except httpx.RequestError as e:
-        # сетевые ошибки сюда попадут, если retry исчерпан
         logger.error("Сетевая ошибка при переносе payload=%s: %s", payload, e)
         return {"success": False, "error": "network_error", "details": str(e)[:800]}
 
@@ -125,11 +113,7 @@ async def _reschedule_payload(
     client = get_http()
 
     logger.info("POST %s payload=%s", url, payload)
-    resp = await client.post(
-        url,
-        json=payload,
-        timeout=httpx.Timeout(timeout_s),
-    )
+    resp = await client.post(url, json=payload, timeout=httpx.Timeout(timeout_s))
     resp.raise_for_status()
 
     try:
@@ -141,6 +125,7 @@ async def _reschedule_payload(
         raise ValueError(f"Неожиданный тип JSON из CRM: {type(data)}")
 
     return data
+
 
 
 

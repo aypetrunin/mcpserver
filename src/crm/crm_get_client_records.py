@@ -1,6 +1,20 @@
-# crm_get_client_records.py
 # src/crm/crm_get_client_records.py
 from __future__ import annotations
+
+"""
+Поиск записей клиента в CRM.
+
+Что исправлено относительно старой версии:
+-----------------------------------------
+1) Убрали S = get_settings() на уровне модуля.
+   Раньше settings читались при импорте файла → могло ломаться, если init_runtime()
+   ещё не вызывался (тесты/скрипты/другой entrypoint).
+
+2) Убрали URL_CLIENT_RECORDS как глобальную константу, построенную из settings.
+   Теперь URL строится лениво в момент HTTP-вызова через crm_url().
+
+3) Таймаут берём единообразно через crm_timeout_s() (лениво).
+"""
 
 import logging
 from datetime import datetime
@@ -10,16 +24,12 @@ import httpx
 
 from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
-from src.settings import get_settings
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 logger = logging.getLogger(__name__)
 
-# Читаем settings один раз на модуль (как в httpservice_call_administrator.py)
-S = get_settings()
-
-# Endpoint как часть протокола (не env)
+# Endpoint как часть протокола (безопасная константа, не зависит от env)
 CLIENT_RECORDS_PATH = "/appointments/client/records"
-URL_CLIENT_RECORDS = f"{S.CRM_BASE_URL.rstrip('/')}{CLIENT_RECORDS_PATH}"
 
 
 class PersonalRecord(TypedDict, total=False):
@@ -44,8 +54,13 @@ class ClientRecordsPayload(TypedDict):
 
 
 async def get_client_records(user_companychat: int, channel_id: int) -> PersonalRecordsResponse:
-    """Асинхронный поиск записей клиента через API CRM gateway."""
+    """
+    Асинхронный поиск записей клиента через API CRM gateway.
 
+    Возвращает:
+    - {"success": True, "data": [...], "error": None}
+    - {"success": False, "data": [], "error": "..."}
+    """
     logger.info("=== crm.crm_get_client_records ===")
 
     payload: ClientRecordsPayload = {
@@ -58,6 +73,7 @@ async def get_client_records(user_companychat: int, channel_id: int) -> Personal
         return _response_format(resp_json, channel_id)
 
     except httpx.HTTPStatusError as e:
+        # Сюда попадём, если retry исчерпан или статус неретраибельный (4xx кроме 429)
         logger.warning(
             "crm_get_client_records http error status=%s body=%s",
             e.response.status_code,
@@ -70,12 +86,18 @@ async def get_client_records(user_companychat: int, channel_id: int) -> Personal
         }
 
     except httpx.RequestError as e:
+        # Сюда попадём, если retry исчерпан по сетевым ошибкам
         logger.warning("crm_get_client_records request error: %s", str(e))
         return {
             "success": False,
             "data": [],
             "error": "network_error",
         }
+
+    except ValueError as e:
+        # Например: invalid json или неожиданный тип
+        logger.error("crm_get_client_records bad response payload=%s: %s", payload, e)
+        return {"success": False, "data": [], "error": "invalid_response"}
 
     except Exception as e:  # noqa: BLE001
         logger.exception("crm_get_client_records unexpected error payload=%s: %s", payload, e)
@@ -95,23 +117,39 @@ async def _fetch_client_records_payload(payload: ClientRecordsPayload) -> dict[s
     - timeout / network error
     - HTTP 429
     - HTTP 5xx
+
+    Важно:
+    - URL и timeout считаем лениво, внутри функции.
     """
     client = get_http()
 
+    url = crm_url(CLIENT_RECORDS_PATH)
+    timeout_s = crm_timeout_s(0.0)
+
     resp = await client.post(
-        URL_CLIENT_RECORDS,
+        url,
         json=payload,
-        timeout=httpx.Timeout(S.CRM_HTTP_TIMEOUT_S),
+        timeout=httpx.Timeout(timeout_s),
     )
     resp.raise_for_status()
+
     try:
-        return resp.json()
+        data = resp.json()
     except Exception as e:  # noqa: BLE001
         raise ValueError(f"Недопустимый ответ JSON от CRM: {e}") from e
 
+    if not isinstance(data, dict):
+        raise ValueError(f"Неожиданный тип JSON из CRM: {type(data)}")
+
+    return data
+
 
 def _parse_dt(dt_str: str) -> Optional[datetime]:
-    """Пытаемся распарсить дату; возвращаем None если не получилось."""
+    """
+    Пытаемся распарсить дату; возвращаем None если не получилось.
+
+    Поддерживаем несколько форматов, потому что CRM/интеграции иногда отдают по-разному.
+    """
     if not dt_str:
         return None
 
@@ -128,6 +166,14 @@ def _parse_dt(dt_str: str) -> Optional[datetime]:
 
 
 def _response_format(response: dict[str, Any], channel_id: int) -> PersonalRecordsResponse:
+    """
+    Приводим ответ CRM к формату, который ожидают остальные части проекта.
+
+    Бизнес-правило:
+    - берём только записи со status == "Ожидает..."
+    - product_id формируем как "channel_id-product_id" (как было раньше)
+    - сортируем по record_date, а невалидные даты отправляем в конец
+    """
     if not response.get("success"):
         return {"success": False, "data": [], "error": "Ошибка поиска записей клиента"}
 
@@ -158,7 +204,6 @@ def _response_format(response: dict[str, Any], channel_id: int) -> PersonalRecor
                 "office_id": channel_id,
                 "master_id": master.get("id"),
                 "master_name": master.get("name"),
-                # как раньше: "channel-product"
                 "product_id": f"{channel_id}-{product.get('id')}",
                 "product_name": product.get("name"),
             }

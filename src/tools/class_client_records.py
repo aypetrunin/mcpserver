@@ -27,6 +27,7 @@ MCP-инструмент (FastMCP tool) для получения текущих
 
 from __future__ import annotations
 
+import logging
 import textwrap
 from typing import Any, Dict
 
@@ -34,8 +35,8 @@ from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
 from ..crm.crm_get_client_records import get_client_records  # type: ignore
-from ..qdrant.retriever_common import logger  # type: ignore
 
+logger = logging.getLogger(__name__)
 
 class MCPClientRecords:
     """

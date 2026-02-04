@@ -1,21 +1,36 @@
 # src/crm/crm_delete_client_record.py
 from __future__ import annotations
 
+"""
+Удаление записи клиента.
+
+Что исправлено относительно старой версии:
+-----------------------------------------
+1) Убрали S = get_settings() на уровне модуля.
+   Раньше это читало env при импорте модуля — могло ломаться, если init_runtime()
+   ещё не вызывался (тесты, скрипты, другой entrypoint).
+
+2) Убрали URL_DELETE_RECORDS как глобальную константу, построенную из settings.
+   Теперь URL строится лениво (в момент реального запроса) через crm_url().
+
+3) Таймаут берём единообразно через crm_timeout_s():
+   - если где-то захотят прокинуть свой timeout — это будет просто,
+   - сейчас используем стандартный таймаут из settings.
+"""
+
 import logging
 from typing import Any, Optional, TypedDict
 
 import httpx
 
 from src.clients import get_http
-from src.settings import get_settings
 from src.http_retry import CRM_HTTP_RETRY
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
+# Относительный путь CRM-метода (безопасная константа, не зависит от env)
 DELETE_RECORDS_PATH = "/appointments/client/records/delete"
-URL_DELETE_RECORDS = f"{S.CRM_BASE_URL.rstrip('/')}{DELETE_RECORDS_PATH}"
 
 
 class DeleteClientRecordPayload(TypedDict):
@@ -34,8 +49,13 @@ async def delete_client_record(user_companychat: int, office_id: int, record_id:
     """
     Удаление записи на услугу.
 
-    office_id в старом коде фактически является channel_id — сохраняем сигнатуру,
-    чтобы не менять вызовы во всём проекте.
+    Важно:
+    - office_id в старом коде фактически является channel_id.
+      Сохраняем сигнатуру, чтобы не менять вызовы во всём проекте.
+
+    Возвращает:
+    - {"success": True,  "data": "...", "error": None} — если CRM подтвердил удаление
+    - {"success": False, "data": "...", "error": "..."} — если ошибка/не найдено
     """
     logger.info("=== crm.crm_delete_client_record ===")
 
@@ -64,6 +84,7 @@ async def delete_client_record(user_companychat: int, office_id: int, record_id:
         }
 
     except httpx.HTTPStatusError as e:
+        # Сюда попадём, если ретраи исчерпаны или статус неретраибельный (4xx кроме 429)
         logger.warning(
             "crm_delete_client_record http error status=%s body=%s",
             e.response.status_code,
@@ -72,6 +93,7 @@ async def delete_client_record(user_companychat: int, office_id: int, record_id:
         return {"success": False, "data": "", "error": f"status={e.response.status_code}"}
 
     except httpx.RequestError as e:
+        # Сюда попадём, если ретраи исчерпаны по сетевым ошибкам
         logger.warning("crm_delete_client_record request error: %s", str(e))
         return {"success": False, "data": "", "error": "network_error"}
 
@@ -92,13 +114,20 @@ async def _delete_client_record_payload(payload: DeleteClientRecordPayload) -> d
     - timeout / network error
     - HTTP 429
     - HTTP 5xx
+
+    Здесь мы держим "чистый" HTTP-слой:
+    - строим URL лениво через crm_url()
+    - берём таймаут лениво через crm_timeout_s()
     """
     client = get_http()
 
+    url = crm_url(DELETE_RECORDS_PATH)
+    timeout_s = crm_timeout_s(0.0)
+
     resp = await client.post(
-        URL_DELETE_RECORDS,
+        url,
         json=payload,
-        timeout=httpx.Timeout(S.CRM_HTTP_TIMEOUT_S),
+        timeout=httpx.Timeout(timeout_s),
     )
     resp.raise_for_status()
 
@@ -111,9 +140,6 @@ async def _delete_client_record_payload(payload: DeleteClientRecordPayload) -> d
         raise ValueError(f"Неожиданный тип JSON из CRM: {type(data)}")
 
     return data
-
-
-
 
 
 # import logging

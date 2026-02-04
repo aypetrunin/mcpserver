@@ -1,5 +1,21 @@
 # src/crm/crm_get_client_lessons.py
-"""Модуль чтения расписания клиента (GO CRM)."""
+"""
+Модуль чтения расписания клиента (GO CRM).
+
+Что исправлено относительно старой версии:
+-----------------------------------------
+1) Убрали S = get_settings() на уровне модуля.
+   Раньше это могло читать env при импорте модуля (ещё до init_runtime()).
+
+2) Убрали URL_GET_RECORDS как глобальную константу, построенную из settings.
+   Теперь URL строим лениво в момент HTTP-вызова через crm_url().
+
+3) Таймаут берём единообразно через crm_timeout_s():
+   - если timeout > 0 — используем его
+   - иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+
+Остальная бизнес-логика и формат ответов сохранены.
+"""
 
 from __future__ import annotations
 
@@ -10,14 +26,12 @@ import httpx
 
 from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
-from src.settings import get_settings
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
+# Относительный путь к методу GO CRM (безопасная константа)
 GET_RECORDS_PATH = "/appointments/go_crm/get_records"
-URL_GET_RECORDS = f"{S.CRM_BASE_URL.rstrip('/')}{GET_RECORDS_PATH}"
 
 
 class ErrorResponse(TypedDict):
@@ -42,6 +56,9 @@ ResponsePayload = ErrorResponse | SuccessResponse
 
 
 def _log_and_build_input_error(param_name: str, value: Any) -> ErrorResponse:
+    """
+    Единая форма ошибки на входных параметрах.
+    """
     logger.warning("Не указан или неверный тип '%s': %r", param_name, value)
     return ErrorResponse(
         success=False,
@@ -50,6 +67,7 @@ def _log_and_build_input_error(param_name: str, value: Any) -> ErrorResponse:
 
 
 def _validate_str_param(value: Any) -> bool:
+    """True только для непустой строки."""
     return isinstance(value, str) and bool(value.strip())
 
 
@@ -60,10 +78,15 @@ async def _fetch_client_lessons(payload: dict[str, Any], timeout_s: float) -> di
     - timeout / network error
     - HTTP 429
     - HTTP 5xx
+
+    Важно:
+    - URL строим лениво (crm_url(GET_RECORDS_PATH)), поэтому settings не читаются при импорте.
     """
     client = get_http()
+    url = crm_url(GET_RECORDS_PATH)
+
     resp = await client.post(
-        URL_GET_RECORDS,
+        url,
         json=payload,
         timeout=httpx.Timeout(timeout_s),
     )
@@ -80,10 +103,21 @@ async def go_get_client_lessons(
     channel_id: str,
     timeout: float = 0.0,
 ) -> ResponsePayload:
-    """Получение расписания клиента."""
+    """
+    Получение расписания клиента (GO CRM).
 
+    Параметры:
+    - phone: телефон клиента (строка)
+    - channel_id: идентификатор канала/филиала (строка)
+    - timeout: если >0 — используем его, иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
+
+    Возвращает:
+    - SuccessResponse(success=True, lessons=[...])
+    - ErrorResponse(success=False, error="...")
+    """
     logger.info("=== crm_go.go_get_client_lessons ===")
 
+    # Валидируем входные параметры
     for name, value in (("channel_id", channel_id), ("phone", phone)):
         if not _validate_str_param(value):
             return _log_and_build_input_error(name, value)
@@ -93,13 +127,14 @@ async def go_get_client_lessons(
         "phone": phone.strip(),
     }
 
-    effective_timeout = timeout or float(S.CRM_HTTP_TIMEOUT_S)
+    effective_timeout = crm_timeout_s(timeout)
 
     try:
         resp_json = await _fetch_client_lessons(payload=payload, timeout_s=effective_timeout)
         logger.info("go_get_client_lessons resp_json=%s", resp_json)
 
     except httpx.HTTPStatusError as e:
+        # Сюда попадём, если retry исчерпан или статус неретраибельный (4xx кроме 429)
         logger.warning(
             "go_get_client_lessons http error status=%s body=%s",
             e.response.status_code,
@@ -108,10 +143,12 @@ async def go_get_client_lessons(
         return ErrorResponse(success=False, error="GO CRM временно недоступен. Обратитесь к администратору.")
 
     except httpx.RequestError as e:
+        # Сюда попадём, если retry исчерпан по сетевым ошибкам
         logger.warning("go_get_client_lessons request error payload=%s: %s", payload, str(e))
         return ErrorResponse(success=False, error="Сетевая ошибка при обращении к GO CRM.")
 
     except ValueError:
+        # Например, invalid json или неожиданный тип
         logger.exception("go_get_client_lessons invalid json payload=%s", payload)
         return ErrorResponse(success=False, error="GO CRM вернул некорректный ответ.")
 
@@ -119,6 +156,7 @@ async def go_get_client_lessons(
         logger.exception("go_get_client_lessons unexpected error payload=%s: %s", payload, e)
         return ErrorResponse(success=False, error="Неизвестная ошибка при обращении к GO CRM.")
 
+    # GO CRM может вернуть success=False и сообщение "нет данных"
     if not bool(resp_json.get("success")):
         msg = f"Нет данных в системе для channel_id={channel_id}, phone={phone}"
         logger.warning(msg)
@@ -130,6 +168,7 @@ async def go_get_client_lessons(
 
     lessons_list = cast(list[dict[str, Any]], lessons_raw)
 
+    # Берём только ожидаемые ключи (как у вас было)
     required_keys = ["record_id", "service", "date", "time", "teacher"]
 
     filtered_lessons: list[Lesson] = []
@@ -143,8 +182,6 @@ async def go_get_client_lessons(
         filtered_lessons.append(filtered_lesson)
 
     return SuccessResponse(success=True, lessons=filtered_lessons)
-
-
 
 
 # """Модуль чтения расписания клиента."""

@@ -1,9 +1,19 @@
 # src/crm/crm_avaliable_time_for_master_list.py
-"""Поиск свободных слотов по мастерам.
+"""
+Поиск свободных слотов по мастерам.
 
 Поддерживает:
 - одиночную услугу: result.service.staff[].dates -> master/slots
 - комплекс: result.avaliable_sequences -> sequences + short_list
+
+Главная цель этой версии:
+- НЕ читать settings при импорте модуля (никаких S = get_settings() сверху)
+- НЕ хранить URL, построенный из settings, как глобальную константу
+  (URL строим лениво в момент реального запроса)
+
+Почему это важно:
+- модуль может быть импортирован тестами/скриптами ДО init_runtime()
+- если settings читаются при импорте — вы получаете "не тот env" или падение
 """
 
 from __future__ import annotations
@@ -16,20 +26,20 @@ import httpx
 
 from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
-from src.settings import get_settings
+from src.crm.crm_http import crm_timeout_s, crm_url
 
 logger = logging.getLogger(__name__)
-
-S = get_settings()
 
 DT_FMT_DATE = "%Y-%m-%d"
 DT_FMT_SLOT = "%Y-%m-%d %H:%M"
 
+# Относительный путь к CRM-методу.
+# Важно: это безопасная константа, она не зависит от env/settings.
 PRODUCT_PATH = "/appointments/yclients/product"
-URL_PRODUCT = f"{S.CRM_BASE_URL.rstrip('/')}{PRODUCT_PATH}"
 
 
 def _parse_date(value: str) -> Optional[date_type]:
+    """Парсим дату формата YYYY-MM-DD. Если формат неверный — возвращаем None."""
     try:
         return datetime.strptime(value, DT_FMT_DATE).date()
     except ValueError:
@@ -37,10 +47,19 @@ def _parse_date(value: str) -> Optional[date_type]:
 
 
 def _error_tuple(message: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """
+    Возвращаем результат в ожидаемом формате функции:
+    (sequences_list, short_list), но с ошибкой в sequences_list.
+    """
     return ([{"success": False, "error": message}], [])
 
 
 def filter_sequences_list(name: str, sequences_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Фильтр "по названию услуги" -> ожидаемое имя мастера (как было у вас).
+
+    Если маппинг не найден — возвращаем список как есть.
+    """
     map_name = {
         "Прессотерапия": "Прессотерапия",
         "Роликовый массажер": "Ролик",
@@ -55,6 +74,15 @@ def filter_sequences_list(name: str, sequences_list: list[dict[str, Any]]) -> li
 
 
 def filter_future_slots(masters_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Оставляем только будущие слоты (slot_datetime > now).
+
+    Вход:
+    [
+      {"master_name": ..., "master_id": ..., "master_slots": ["YYYY-MM-DD HH:MM", ...]},
+      ...
+    ]
+    """
     now = datetime.now()
     result: list[dict[str, Any]] = []
 
@@ -71,6 +99,7 @@ def filter_future_slots(masters_data: list[dict[str, Any]]) -> list[dict[str, An
                 if datetime.strptime(slot, DT_FMT_SLOT) > now:
                     filtered_slots.append(slot)
             except ValueError:
+                # Если CRM прислала слот в непредвиденном формате — просто пропускаем
                 continue
 
         result.append(
@@ -85,7 +114,10 @@ def filter_future_slots(masters_data: list[dict[str, Any]]) -> list[dict[str, An
 
 
 def update_services_in_sequences(data: dict[str, Any]) -> dict[str, Any]:
-    # сохраняю ваш текущий маппинг “мастеров по service_id”
+    """
+    Для "комплекса" вы делали подмену master_id/master_name в шаге на основе service_id.
+    Оставляем как есть — это бизнес-правило.
+    """
     replacements: dict[str, dict[str, str]] = {
         "2950601": {"master_id": "881127", "master_name": "Термотерапия"},
         "2950597": {"master_id": "864147", "master_name": "Прессотерапия"},
@@ -119,6 +151,9 @@ def update_services_in_sequences(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def avaliable_sequences_short(avaliable_sequences: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Сокращённая форма списка "комплексных" последовательностей.
+    """
     result: list[dict[str, Any]] = []
     for seq in avaliable_sequences:
         if not isinstance(seq, dict):
@@ -148,13 +183,24 @@ def avaliable_sequences_short(avaliable_sequences: list[dict[str, Any]]) -> list
 
 @CRM_HTTP_RETRY
 async def _fetch_product(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
+    """
+    Низкоуровневый вызов CRM.
+
+    Важно:
+    - URL строим ЛЕНИВО: crm_url(PRODUCT_PATH) внутри функции,
+      поэтому при импорте модуля settings не читаются.
+    - retry делает декоратор @CRM_HTTP_RETRY (429/5xx/network/timeout).
+    """
     client = get_http()
+    url = crm_url(PRODUCT_PATH)
+
     resp = await client.post(
-        URL_PRODUCT,
+        url,
         json=payload,
         timeout=httpx.Timeout(timeout_s),
     )
     resp.raise_for_status()
+
     data = resp.json()
     if not isinstance(data, dict):
         raise ValueError(f"Unexpected JSON type from CRM: {type(data)}")
@@ -168,8 +214,27 @@ async def avaliable_time_for_master_list_async(
     count_slots: int = 30,
     timeout: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """
+    Главная функция: отдаёт либо список мастеров и слотов (одиночная услуга),
+    либо список последовательностей (комплекс).
+
+    Возвращает:
+    (sequences_list, short_list)
+
+    где:
+    - sequences_list:
+        для одиночной услуги:
+            [{"master_name": ..., "master_id": ..., "master_slots": [...]}, ...]
+        для комплекса:
+            [{"sequence_id": ..., "start_time": ...}, ...]
+    - short_list:
+        для комплекса:
+            [{sequence_id, start_time, services:[...]}...]
+        иначе []
+    """
     logger.info("=== crm.crm_avaliable_time_for_master_list_async ===")
 
+    # 1) Базовая валидация входных параметров
     if not isinstance(service_id, str) or not service_id.strip():
         return _error_tuple("Не задан service_id")
 
@@ -181,12 +246,17 @@ async def avaliable_time_for_master_list_async(
     if d < today:
         return _error_tuple(f"Нельзя записаться на прошедшее число. Сегодня {today.strftime(DT_FMT_DATE)}")
 
+    # 2) Пейлоад CRM-запроса
     payload = {"service_id": service_id, "base_date": date}
-    effective_timeout = timeout or float(S.CRM_HTTP_TIMEOUT_S)
 
+    # 3) Таймаут: если timeout=0/не задан — берём из settings (лениво)
+    effective_timeout = crm_timeout_s(timeout)
+
+    # 4) Запрос к CRM
     try:
         resp_json = await _fetch_product(payload=payload, timeout_s=effective_timeout)
     except httpx.HTTPStatusError as e:
+        # Сюда попадём только если ретраи исчерпаны или статус неретраибельный (4xx кроме 429)
         logger.warning(
             "avaliable_time_for_master_list HTTP status=%s body=%s",
             e.response.status_code,
@@ -194,18 +264,21 @@ async def avaliable_time_for_master_list_async(
         )
         return [], []
     except httpx.RequestError as e:
+        # Сюда попадём только если ретраи исчерпаны по сетевым ошибкам
         logger.warning("avaliable_time_for_master_list request error: %s", str(e))
         return [], []
     except Exception as e:  # noqa: BLE001
         logger.exception("avaliable_time_for_master_list unexpected error payload=%s: %s", payload, e)
         return [], []
 
+    # 5) Базовая проверка ответа
     if resp_json.get("success") is not True:
         return [], []
 
     result = resp_json.get("result") or {}
 
     # -------------------- Одиночная услуга --------------------
+    # В этом режиме CRM отдаёт result.service.staff = список мастеров с датами
     service_obj = result.get("service")
     if isinstance(service_obj, dict):
         staff_list = service_obj.get("staff", [])
@@ -218,13 +291,16 @@ async def avaliable_time_for_master_list_async(
         for item in staff_list:
             if not isinstance(item, dict):
                 continue
+
             dates = item.get("dates")
             if not isinstance(dates, list):
                 continue
 
+            # Слоты — строки вида "YYYY-MM-DD HH:MM"
             dates_str = [s for s in dates if isinstance(s, str)]
 
-            parsed_pairs = []
+            # Сортируем по времени (чтобы slots шли по возрастанию)
+            parsed_pairs: list[tuple[datetime, str]] = []
             for s in dates_str:
                 try:
                     parsed_pairs.append((datetime.strptime(s, DT_FMT_SLOT), s))
@@ -242,11 +318,13 @@ async def avaliable_time_for_master_list_async(
                 }
             )
 
+        # Ваши бизнес-фильтры
         sequences_list = filter_sequences_list(product_name, sequences_list)
         sequences_list = filter_future_slots(sequences_list)
         return sequences_list, []
 
     # -------------------- Комплекс --------------------
+    # Тут CRM отдаёт result.avaliable_sequences = список последовательностей услуг
     resp_json = update_services_in_sequences(resp_json)
     avaliable_sequences = (resp_json.get("result") or {}).get("avaliable_sequences")
 
@@ -260,6 +338,7 @@ async def avaliable_time_for_master_list_async(
         return sequences_list, short_list
 
     return [], []
+
 
 
 

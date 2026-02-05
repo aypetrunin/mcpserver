@@ -21,17 +21,17 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from datetime import datetime, date as date_type
-from typing import Any, Optional
-
 import httpx
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
+from typing import Any, Optional
+from dataclasses import dataclass
+from datetime import datetime, date as date_type
 
-logger = logging.getLogger(__name__)
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
+
+logger = logging.getLogger(__name__.split('.')[-1])
 
 DT_FMT_DATE = "%Y-%m-%d"
 DT_FMT_SLOT = "%Y-%m-%d %H:%M"
@@ -132,7 +132,6 @@ async def avaliable_time_for_master_async(
       ]
     или (в случае ошибок валидации даты) — список с {"success": False, "error": "..."}.
     """
-    logger.info("=== crm.avaliable_time_for_master_async ===")
 
     # 1) Валидация service_id
     if not isinstance(service_id, str) or not service_id.strip():

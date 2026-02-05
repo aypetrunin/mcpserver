@@ -26,13 +26,12 @@ from typing import Any, Literal, Optional, TypedDict
 
 import httpx
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
-
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
 from .crm_get_client_statistics import go_get_client_statisics
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__.split('.')[-1])
 
 # Относительный путь к методу GO CRM (безопасная константа)
 RESCHEDULE_PATH = "/appointments/go_crm/reschedule_record"
@@ -130,8 +129,7 @@ async def go_update_client_lesson(
     Параметры:
     - timeout: если >0 — используем его, иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
     """
-    logger.info("=== crm_go.go_update_client_lesson ===")
-
+  
     # ---- валидация входных ----
     for name, value in (
         ("phone", phone),

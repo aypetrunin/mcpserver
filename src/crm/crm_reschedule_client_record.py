@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, TypedDict
-
 import httpx
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
+from typing import Any, Optional, TypedDict
 
-logger = logging.getLogger(__name__)
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
+
+logger = logging.getLogger(__name__.split('.')[-1])
 
 RESCHEDULE_PATH = "/appointments/client/records/reschedule"
 
@@ -51,7 +51,6 @@ async def reschedule_client_record(
         - если endpoint_url передан — используем его
         - иначе строим из settings в момент вызова
     """
-    logger.info("=== crm.crm_reschedule_client_record ===")
 
     url = endpoint_url or crm_url(RESCHEDULE_PATH)
     effective_timeout = crm_timeout_s(timeout)
@@ -112,7 +111,6 @@ async def _reschedule_payload(
     """
     client = get_http()
 
-    logger.info("POST %s payload=%s", url, payload)
     resp = await client.post(url, json=payload, timeout=httpx.Timeout(timeout_s))
     resp.raise_for_status()
 

@@ -15,17 +15,22 @@ from ..tools.services import tool_services  # type: ignore
 from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.remember_master import tool_remember_master  # type: ignore
 from ..tools.remember_product_id import tool_remember_product_id  # type: ignore
-from ..tools.avaliable_time_for_master import tool_avaliable_time_for_master  # type: ignore
+from ..tools.class_avaliable_time_for_master import MCPAvailableTimeForMaster  # type: ignore
 from ..tools.class_product_search_query import MCPSearchProductQuery  # type: ignore
 
 
-def build_mcp_annitta() -> FastMCP:
+async def build_mcp_annitta() -> FastMCP:
     """
     Собираем и возвращаем FastMCP сервер для Annitta.
     Ничего не запускаем тут, только создаём объект.
     """
     channel_ids = get_env_csv("CHANNEL_IDS_ANNITTA")
-    tool_product_search = MCPSearchProductQuery(channel_ids=channel_ids).get_tool()
+ 
+    m = MCPSearchProductQuery(channel_ids=channel_ids)
+    tool_product_search_annitta = m.get_tool()
+
+    a = await MCPAvailableTimeForMaster.create(channel_ids=channel_ids)
+    tool_avaliable_time_for_master = a.get_tool()
 
     return build_mcp(
         name="Annitta",
@@ -33,9 +38,9 @@ def build_mcp_annitta() -> FastMCP:
             (tool_faq, "zena"),
             (tool_services, "zena"),
             (tool_record_time, "zena"),
-            (tool_product_search, "zena"),
             (tool_remember_master, "zena"),
             (tool_remember_product_id, "zena"),
+            (tool_product_search_annitta, "zena"),
             (tool_avaliable_time_for_master, "zena"),
         ],
     )

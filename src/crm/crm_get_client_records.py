@@ -17,16 +17,16 @@ from __future__ import annotations
 """
 
 import logging
+import httpx
+
 from datetime import datetime
 from typing import Any, Optional, TypedDict
 
-import httpx
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__.split('.')[-1])
 
 # Endpoint как часть протокола (безопасная константа, не зависит от env)
 CLIENT_RECORDS_PATH = "/appointments/client/records"
@@ -61,7 +61,6 @@ async def get_client_records(user_companychat: int, channel_id: int) -> Personal
     - {"success": True, "data": [...], "error": None}
     - {"success": False, "data": [], "error": "..."}
     """
-    logger.info("=== crm.crm_get_client_records ===")
 
     payload: ClientRecordsPayload = {
         "user_companychat": user_companychat,
@@ -75,7 +74,7 @@ async def get_client_records(user_companychat: int, channel_id: int) -> Personal
     except httpx.HTTPStatusError as e:
         # Сюда попадём, если retry исчерпан или статус неретраибельный (4xx кроме 429)
         logger.warning(
-            "crm_get_client_records http error status=%s body=%s",
+            "http error status=%s body=%s",
             e.response.status_code,
             e.response.text[:500],
         )
@@ -87,7 +86,7 @@ async def get_client_records(user_companychat: int, channel_id: int) -> Personal
 
     except httpx.RequestError as e:
         # Сюда попадём, если retry исчерпан по сетевым ошибкам
-        logger.warning("crm_get_client_records request error: %s", str(e))
+        logger.warning("request error: %s", str(e))
         return {
             "success": False,
             "data": [],
@@ -96,11 +95,11 @@ async def get_client_records(user_companychat: int, channel_id: int) -> Personal
 
     except ValueError as e:
         # Например: invalid json или неожиданный тип
-        logger.error("crm_get_client_records bad response payload=%s: %s", payload, e)
+        logger.error("bad response payload=%s: %s", payload, e)
         return {"success": False, "data": [], "error": "invalid_response"}
 
     except Exception as e:  # noqa: BLE001
-        logger.exception("crm_get_client_records unexpected error payload=%s: %s", payload, e)
+        logger.exception("unexpected error payload=%s: %s", payload, e)
         return {
             "success": False,
             "data": [],

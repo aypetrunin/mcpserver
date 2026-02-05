@@ -42,7 +42,6 @@ class ServerSpec:
 # ВАЖНО: эти модули должны только СОБИРАТЬ сервер и не делать "побочных эффектов"
 # при импорте (не читать env на уровне модуля, не подключаться к БД и т.д.)
 # --------------------------------------------------------------------------
-from src.server.server_sse_alisa_v2 import build_mcp_alisa
 from src.server.server_sse_sofia_v2 import build_mcp_sofia
 from src.server.server_sse_anisa_v2 import build_mcp_anisa
 from src.server.server_sse_alena_v2 import build_mcp_alena
@@ -61,7 +60,6 @@ from src.server.server_sse_marina_v2 import build_mcp_marina
 # 3) добавить строку ServerSpec(...) в список ниже
 # --------------------------------------------------------------------------
 SERVERS: list[ServerSpec] = [
-    ServerSpec("alisa", "MCP_PORT_ALISA", build_mcp_alisa),
     ServerSpec("sofia", "MCP_PORT_SOFIA", build_mcp_sofia),
     ServerSpec("anisa", "MCP_PORT_ANISA", build_mcp_anisa),
     ServerSpec("alena", "MCP_PORT_ALENA", build_mcp_alena),

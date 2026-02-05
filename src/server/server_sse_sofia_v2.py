@@ -19,9 +19,9 @@ from ..tools.remember_master import tool_remember_master  # type: ignore
 from ..tools.remember_product_id import tool_remember_product_id  # type: ignore
 from ..tools.remember_desired_date import tool_remember_desired_date  # type: ignore
 from ..tools.remember_desired_time import tool_remember_desired_time  # type: ignore
-from ..tools.avaliable_time_for_master import tool_avaliable_time_for_master  # type: ignore
+from ..tools.class_client_records import MCPClientRecords  # type: ignore
 from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
-from ..tools.class_client_records import MCPClientRecords
+from ..tools.class_avaliable_time_for_master import MCPAvailableTimeForMaster  # type: ignore
 from ..tools.delete_client_record import tool_record_delete  # type: ignore
 from ..tools.reschedule_client_record import tool_record_reschedule  # type: ignore
 from ..tools.call_administrator import tool_call_administrator  # type: ignore
@@ -32,11 +32,15 @@ async def build_mcp_sofia() -> FastMCP:
     Ничего не запускаем тут, только создаём объект.
     """
     channel_ids = get_env_csv("CHANNEL_IDS_SOFIA")
+
     m = await MCPSearchProductFull.create(channel_ids=channel_ids)
     tool_product_search_sofia = m.get_tool()
 
     r = await MCPClientRecords.create(channel_ids=channel_ids)
     tool_records_sofia = r.get_tool()
+
+    a = await MCPAvailableTimeForMaster.create(channel_ids=channel_ids)
+    tool_avaliable_time_for_master = a.get_tool()
 
     return build_mcp(
         name="Sofia",

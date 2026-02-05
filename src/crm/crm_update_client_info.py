@@ -21,15 +21,15 @@ Mодуль регистрации нового клиента в GO CRM.
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, TypedDict
-
 import httpx
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
+from typing import Any, Literal, TypedDict
 
-logger = logging.getLogger(__name__)
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
+
+logger = logging.getLogger(__name__.split('.')[-1])
 
 # Относительный путь к методу GO CRM (безопасная константа)
 CREATE_CLIENT_PATH = "/appointments/go_crm/create_client"
@@ -107,7 +107,6 @@ async def go_update_client_info(
     Параметры:
     - timeout: если >0 — используем его, иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
     """
-    logger.info("=== crm_go.go_update_client_info ===")
 
     # В текущем файле user_id не валидировался, хотя он обязателен в payload.
     # Оставляем строгую проверку, чтобы не отправлять мусор в CRM.
@@ -139,7 +138,6 @@ async def go_update_client_info(
 
     try:
         resp_json = await _create_client_payload(payload=payload, timeout_s=effective_timeout)
-        logger.info("go_update_client_info resp_json=%s", resp_json)
 
     except httpx.HTTPStatusError as e:
         logger.warning(

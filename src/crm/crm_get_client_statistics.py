@@ -21,18 +21,18 @@ from __future__ import annotations
 """
 
 import logging
+import httpx
 import re
+
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Literal, Optional, TypedDict
-
-import httpx
 from dateutil.relativedelta import relativedelta
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__.split('.')[-1])
 
 # Относительный путь к методу GO CRM (безопасная константа)
 CLIENT_INFO_PATH = "/appointments/go_crm/client_info"
@@ -96,7 +96,6 @@ async def go_get_client_statisics(
     - {"success": True,  "message": {...}}  — успех
     - {"success": False, "error": "..."}    — ошибка
     """
-    logger.info("=== crm.go_get_client_statisics ===")
 
     if not isinstance(phone, str) or not phone.strip():
         return {"success": False, "error": "Не указан телефон клиента (phone)"}
@@ -113,12 +112,11 @@ async def go_get_client_statisics(
 
     try:
         resp_json = await _fetch_client_info(payload=payload, timeout_s=effective_timeout)
-        logger.info("go_get_client_statisics resp_json=%s", resp_json)
 
     except httpx.HTTPStatusError as e:
         # Сюда попадём, если retry исчерпан или статус неретраибельный (4xx кроме 429)
         logger.warning(
-            "go_get_client_statisics http error status=%s body=%s",
+            "http error status=%s body=%s",
             e.response.status_code,
             e.response.text[:500],
         )
@@ -126,15 +124,15 @@ async def go_get_client_statisics(
 
     except httpx.RequestError as e:
         # Сюда попадём, если retry исчерпан по сетевым ошибкам
-        logger.warning("go_get_client_statisics request error payload=%s: %s", payload, str(e))
+        logger.warning("request error payload=%s: %s", payload, str(e))
         return {"success": False, "error": fallback_err}
 
     except ValueError:
-        logger.exception("go_get_client_statisics invalid json payload=%s", payload)
+        logger.exception("invalid json payload=%s", payload)
         return {"success": False, "error": fallback_err}
 
     except Exception as e:  # noqa: BLE001
-        logger.exception("go_get_client_statisics unexpected error payload=%s: %s", payload, e)
+        logger.exception("unexpected error payload=%s: %s", payload, e)
         return {"success": False, "error": fallback_err}
 
     if resp_json.get("success") is not True:
@@ -160,7 +158,6 @@ async def go_get_client_statisics(
 
     calc = AbonementCalculator(visits if isinstance(visits, list) else [])
     msg = calc.calculate()
-    logger.info("go_get_client_statisics calculated=%s", msg)
 
     return {"success": True, "message": msg}
 

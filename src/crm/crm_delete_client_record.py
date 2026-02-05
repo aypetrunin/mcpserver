@@ -23,11 +23,11 @@ from typing import Any, Optional, TypedDict
 
 import httpx
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__.split('.')[-1])
 
 # Относительный путь CRM-метода (безопасная константа, не зависит от env)
 DELETE_RECORDS_PATH = "/appointments/client/records/delete"
@@ -57,7 +57,6 @@ async def delete_client_record(user_companychat: int, office_id: int, record_id:
     - {"success": True,  "data": "...", "error": None} — если CRM подтвердил удаление
     - {"success": False, "data": "...", "error": "..."} — если ошибка/не найдено
     """
-    logger.info("=== crm.crm_delete_client_record ===")
 
     payload: DeleteClientRecordPayload = {
         "user_companychat": user_companychat,

@@ -1,12 +1,20 @@
 """MCP-сервер для поиска свободных слотов по мастерам."""
 
-from typing import Any
+import logging
+
 from fastmcp import FastMCP
+from typing import TypedDict
 
 from ..crm.crm_avaliable_time_for_master_list import avaliable_time_for_master_list_async  # type: ignore
 
-tool_avaliable_time_for_master_list = FastMCP(name="avaliable_time_for_master_list")
+logger = logging.getLogger(__name__)
 
+class AvailableTimePayload(TypedDict):
+    date: str
+    service_id: str
+    service_name: str
+
+tool_avaliable_time_for_master_list = FastMCP(name="avaliable_time_for_master_list")
 
 @tool_avaliable_time_for_master_list.tool(
     name="avaliable_time_for_master_list",
@@ -40,7 +48,6 @@ tool_avaliable_time_for_master_list = FastMCP(name="avaliable_time_for_master_li
         '- "На следующей неделе?"\n\n'
 
         "**Args:**\n"
-        "- session_id(str): id dialog session. **Обязательный параметр.**\n"
         "- product_id (list[str}): Список идентификаторов медицинских услуг. Обязательно две цифры разделенные дефисом. Пример формата: ['1-232324', '1-237654']. **Обязательный параметр.**\n\n"
         "- product_name(list[str}): Список названий медицинских услуг. **Обязательный параметр.**\n\n"
         "- date (str): Дата на которую хочет записатьсяклиент в формате DD.MM.YYYY-MM-DD . Пример: '2025-07-22' **Обязательный параметр.**\n"
@@ -49,22 +56,25 @@ tool_avaliable_time_for_master_list = FastMCP(name="avaliable_time_for_master_li
     ),
 )
 async def avaliable_time_for_master(
-    session_id: str, date: str, product_id: list[str], product_name: list[str]
+    date: str,
+    product_id: list[str],
+    product_name: list[str]
 ) -> tuple[list[dict], list[dict]]:
-    """Функция поска свободных слотов."""
-    print("=======mcp_avaliable_time_for_master_list===========")
+    """Функция поиска свободных слотов."""
+
     list_products_id = ', '.join(product_id)
     list_products_name = ', '.join(product_name)
-    print(f"list_products_id: {list_products_id}")
-    print(f"list_products_name: {list_products_name}")
-    
-    sequences, avaliable_sequences = await avaliable_time_for_master_list_async(
-        date = date,
-        service_id = list_products_id,
-        service_name = list_products_name,
-    )
-    
-    print(f"sequences: {sequences}")
-    print(f"avaliable_sequences: {avaliable_sequences}")
+
+    payload: AvailableTimePayload = {
+        "date": date,
+        "service_id": list_products_id,
+        "service_name": list_products_name,
+    }
+
+    sequences, avaliable_sequences = await avaliable_time_for_master_list_async(**payload)
+
+    logger.info("Вход: payload=%s", payload)
+    logger.info("Выход: sequences=%s", sequences)
+    logger.info("Выход: avaliable_sequences=%s", avaliable_sequences)
 
     return sequences, avaliable_sequences

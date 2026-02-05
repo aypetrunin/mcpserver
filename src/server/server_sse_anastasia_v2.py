@@ -16,7 +16,6 @@ from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.remember_master import tool_remember_master  # type: ignore
 from ..tools.recommendations import tool_recommendations  # type: ignore
 from ..tools.remember_product_id_list import tool_remember_product_id_list  # type: ignore
-from ..tools.class_product_search_full import MCPSearchProductFull  # type: ignore
 from ..tools.avaliable_time_for_master_list import tool_avaliable_time_for_master_list  # type: ignore
 
 
@@ -35,7 +34,6 @@ async def build_mcp_anastasia() -> FastMCP:
             (tool_faq, "zena"),
             (tool_services, "zena"),
             (tool_record_time, "zena"),
-            # (tool_product_search, "zena"),
             (tool_remember_master, "zena"),
             (tool_recommendations, "zena"),
             (tool_remember_product_id_list, "zena"),

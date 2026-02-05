@@ -25,17 +25,15 @@ from typing import Any, Literal, TypedDict, cast
 
 import httpx
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
+from ._crm_result import Payload, err, ok
 
-from .crm_result import Payload, err, ok
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__.split('.')[-1])
 
 # Относительный путь к методу CRM (безопасная константа)
 MASTERS_PATH = "/appointments/yclients/staff/actual"
-
 
 # -------------------- Типы ответа CRM --------------------
 
@@ -93,8 +91,6 @@ async def get_masters(
     - ok(list[Master]) — при успехе
     - err(...)         — при ошибке
     """
-    logger.info("=== crm.get_masters ===")
-    logger.info("Получение списка мастеров channel_id=%s", channel_id)
 
     payload = {"channel_id": channel_id}
 

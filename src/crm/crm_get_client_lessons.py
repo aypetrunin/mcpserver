@@ -20,15 +20,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, TypedDict, cast
-
 import httpx
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
+from typing import Any, Literal, TypedDict, cast
 
-logger = logging.getLogger(__name__)
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
+
+logger = logging.getLogger(__name__.split('.')[-1])
 
 # Относительный путь к методу GO CRM (безопасная константа)
 GET_RECORDS_PATH = "/appointments/go_crm/get_records"
@@ -115,8 +115,7 @@ async def go_get_client_lessons(
     - SuccessResponse(success=True, lessons=[...])
     - ErrorResponse(success=False, error="...")
     """
-    logger.info("=== crm_go.go_get_client_lessons ===")
-
+  
     # Валидируем входные параметры
     for name, value in (("channel_id", channel_id), ("phone", phone)):
         if not _validate_str_param(value):
@@ -131,12 +130,11 @@ async def go_get_client_lessons(
 
     try:
         resp_json = await _fetch_client_lessons(payload=payload, timeout_s=effective_timeout)
-        logger.info("go_get_client_lessons resp_json=%s", resp_json)
 
     except httpx.HTTPStatusError as e:
         # Сюда попадём, если retry исчерпан или статус неретраибельный (4xx кроме 429)
         logger.warning(
-            "go_get_client_lessons http error status=%s body=%s",
+            "http error status=%s body=%s",
             e.response.status_code,
             e.response.text[:500],
         )
@@ -144,16 +142,16 @@ async def go_get_client_lessons(
 
     except httpx.RequestError as e:
         # Сюда попадём, если retry исчерпан по сетевым ошибкам
-        logger.warning("go_get_client_lessons request error payload=%s: %s", payload, str(e))
+        logger.warning("request error payload=%s: %s", payload, str(e))
         return ErrorResponse(success=False, error="Сетевая ошибка при обращении к GO CRM.")
 
     except ValueError:
         # Например, invalid json или неожиданный тип
-        logger.exception("go_get_client_lessons invalid json payload=%s", payload)
+        logger.exception("invalid json payload=%s", payload)
         return ErrorResponse(success=False, error="GO CRM вернул некорректный ответ.")
 
     except Exception as e:  # noqa: BLE001
-        logger.exception("go_get_client_lessons unexpected error payload=%s: %s", payload, e)
+        logger.exception("unexpected error payload=%s: %s", payload, e)
         return ErrorResponse(success=False, error="Неизвестная ошибка при обращении к GO CRM.")
 
     # GO CRM может вернуть success=False и сообщение "нет данных"

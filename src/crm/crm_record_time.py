@@ -29,15 +29,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TypedDict
-
 import httpx
 
-from src.clients import get_http
-from src.http_retry import CRM_HTTP_RETRY
-from src.crm.crm_http import crm_timeout_s, crm_url
+from typing import Any, TypedDict
 
-logger = logging.getLogger(__name__)
+from ..clients import get_http
+from ..http_retry import CRM_HTTP_RETRY
+from ._crm_http import crm_timeout_s, crm_url
+
+logger = logging.getLogger(__name__.split('.')[-1])
 
 # Относительный путь к методу CRM (безопасная константа, не зависит от env)
 CREATE_BOOKING_PATH = "/appointments/yclients/create_booking"
@@ -88,7 +88,6 @@ async def record_time_async(
     - значение параметра по умолчанию в Python вычисляется при импорте.
       Нам нельзя вычислять URL на уровне модуля, поэтому дефолт делаем внутри функции.
     """
-    logger.info("=== crm.crm_record_time_async ===")
 
     # URL по умолчанию строим лениво здесь
     url = endpoint_url or crm_url(CREATE_BOOKING_PATH)
@@ -187,7 +186,6 @@ async def _create_booking_payload(
     """
     client = get_http()
 
-    logger.info("POST %s payload=%s", url, payload)
     resp = await client.post(
         url,
         json=payload,
@@ -204,7 +202,6 @@ async def _create_booking_payload(
         raise ValueError(f"Неожиданный тип JSON из CRM: {type(data)}")
 
     return data
-
 
 
 

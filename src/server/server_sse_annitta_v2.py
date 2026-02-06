@@ -24,16 +24,18 @@ async def build_mcp_annitta() -> FastMCP:
     Собираем и возвращаем FastMCP сервер для Annitta.
     Ничего не запускаем тут, только создаём объект.
     """
+
+    channel_name = 'annitta'
     channel_ids = get_env_csv("CHANNEL_IDS_ANNITTA")
  
     m = MCPSearchProductQuery(channel_ids=channel_ids)
     tool_product_search_annitta = m.get_tool()
 
-    a = await MCPAvailableTimeForMaster.create(channel_ids=channel_ids)
+    a = await MCPAvailableTimeForMaster.create(server_name=channel_name, channel_ids=channel_ids)
     tool_avaliable_time_for_master = a.get_tool()
 
     return build_mcp(
-        name="Annitta",
+        name=channel_name,
         mounts=[
             (tool_faq, "zena"),
             (tool_services, "zena"),

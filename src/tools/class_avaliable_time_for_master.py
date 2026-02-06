@@ -9,10 +9,14 @@ MCP-инструмент (FastMCP tool) для поиска свободных �
 
     CHANNEL_IDS_SOFIA=1,19
 
+Также задаётся тайм-зона агента/сервера (IANA TZ), например:
+
+    MCP_TZ_SOFIA=Asia/Krasnoyarsk
+
 Использование:
 
     channel_ids = get_env_csv("CHANNEL_IDS_SOFIA")
-    m = await MCPAvailableTimeForMaster.create(channel_ids=channel_ids)
+    m = await MCPAvailableTimeForMaster.create(server_name="sofia", channel_ids=channel_ids)
     tool_avaliable_time_for_master = m.get_tool()
 
 ЛОГИКА
@@ -21,6 +25,16 @@ MCP-инструмент (FastMCP tool) для поиска свободных �
 - сначала ищем в указанном office_id
 - если слотов нет — параллельно ищем в остальных филиалах из self.channel_ids
 - для каждого филиала при необходимости подбираем secondary product_id через Postgres
+
+ПРИМЕЧАНИЕ ПО ТАЙМ-ЗОНАМ
+------------------------
+Сравнения "прошло/не прошло" и парсинг слотов выполняются внутри CRM-функции
+avaliable_time_for_master_async(...). Для этого сюда прокидывается server_name,
+чтобы CRM-слой мог корректно выбрать TZ из env MCP_TZ_<SERVER>.
+
+Тайм-зона задаётся на уровне MCP-сервера (агента).
+Все филиалы, обслуживаемые данным сервером, находятся в одной тайм-зоне,
+поэтому office_id не участвует в выборе TZ.
 """
 
 from __future__ import annotations
@@ -28,8 +42,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import textwrap
-
 from typing import Any, Optional
+
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
@@ -43,12 +57,17 @@ class MCPAvailableTimeForMaster:
     """
     MCPAvailableTimeForMaster — MCP-обёртка над avaliable_time_for_master_async.
 
+    server_name:
+    - логическое имя сервера/агента (например: "sofia", "alisa")
+    - нужно для корректной работы тайм-зон в CRM-слое (env MCP_TZ_<SERVER>)
+
     channel_ids:
     - передаются один раз при создании класса (обычно из env CHANNEL_IDS_*)
     - используются для fallback-поиска по другим филиалам
     """
 
-    def __init__(self, channel_ids: list[str]) -> None:
+    def __init__(self, server_name: str, channel_ids: list[str]) -> None:
+        self.server_name: str = server_name
         self.channel_ids: list[str] = channel_ids
 
         self.description: str = self._set_description()
@@ -60,12 +79,18 @@ class MCPAvailableTimeForMaster:
         self._register_tool()
 
     @classmethod
-    async def create(cls, channel_ids: list[str]) -> "MCPAvailableTimeForMaster":
+    async def create(
+        cls,
+        server_name: str,
+        channel_ids: list[str],
+    ) -> "MCPAvailableTimeForMaster":
+        if not server_name:
+            raise RuntimeError("server_name пустой. Ожидается имя сервера/агента (например: 'sofia').")
         if not channel_ids:
             raise RuntimeError(
                 "channel_ids пустой. Проверь переменную окружения CHANNEL_IDS_*"
             )
-        return cls(channel_ids=channel_ids)
+        return cls(server_name=server_name, channel_ids=channel_ids)
 
     def _set_description(self) -> str:
         return textwrap.dedent(
@@ -121,7 +146,8 @@ class MCPAvailableTimeForMaster:
         ) -> list[dict[str, Any]]:
             logger.info(
                 "[avaliable_time_for_master] вход | "
-                "session_id=%s office_id=%s date=%s product_id=%s channel_ids=%s",
+                "server=%s session_id=%s office_id=%s date=%s product_id=%s channel_ids=%s",
+                self.server_name,
                 session_id,
                 office_id,
                 date,
@@ -141,7 +167,10 @@ class MCPAvailableTimeForMaster:
                 office_id=office_id,
             )
 
-            response = await self._fetch_slots_for_office(date, product_for_office)
+            response = await self._fetch_slots_for_office(
+                date=date,
+                product_id_for_office=product_for_office,
+            )
 
             response_list.append(
                 {
@@ -170,7 +199,10 @@ class MCPAvailableTimeForMaster:
                     )
                     tasks.append(
                         asyncio.create_task(
-                            self._fetch_slots_for_office(date, product_for_other)
+                            self._fetch_slots_for_office(
+                                date=date,
+                                product_id_for_office=product_for_other,
+                            )
                         )
                     )
                     office_order.append(other_office_id)
@@ -182,7 +214,8 @@ class MCPAvailableTimeForMaster:
                         if isinstance(res, Exception):
                             logger.warning(
                                 "[avaliable_time_for_master] slots fetch failed "
-                                "office_id=%s err=%s",
+                                "server=%s office_id=%s err=%s",
+                                self.server_name,
                                 oid,
                                 res,
                             )
@@ -208,7 +241,8 @@ class MCPAvailableTimeForMaster:
                         )
 
             logger.info(
-                "[avaliable_time_for_master] выход | response_list=%s",
+                "[avaliable_time_for_master] выход | server=%s response_list=%s",
+                self.server_name,
                 response_list,
             )
 
@@ -253,7 +287,8 @@ class MCPAvailableTimeForMaster:
 
         logger.info(
             "[avaliable_time_for_master] resolve product | "
-            "primary_product_id=%s primary_channel=%s office_id=%s",
+            "server=%s primary_product_id=%s primary_channel=%s office_id=%s",
+            self.server_name,
             primary_product_id,
             primary_channel,
             office_id,
@@ -274,7 +309,8 @@ class MCPAvailableTimeForMaster:
         )
 
         logger.info(
-            "[avaliable_time_for_master] resolved | office_id=%s product_for_office=%s",
+            "[avaliable_time_for_master] resolved | server=%s office_id=%s product_for_office=%s",
+            self.server_name,
             office_id,
             product_for_office,
         )
@@ -286,7 +322,13 @@ class MCPAvailableTimeForMaster:
         date: str,
         product_id_for_office: str,
     ) -> list[dict[str, Any]]:
-        return await avaliable_time_for_master_async(date, product_id_for_office)
+        # server_name прокидываем в CRM-слой, чтобы тот мог корректно сравнивать слоты
+        # относительно локального времени агента (env MCP_TZ_<SERVER>).
+        return await avaliable_time_for_master_async(
+            date,
+            product_id_for_office,
+            server_name=self.server_name,
+        )
 
     def get_tool(self) -> FastMCP:
         """Возвращает FastMCP-инструмент для монтирования."""

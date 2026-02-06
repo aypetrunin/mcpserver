@@ -16,7 +16,7 @@ from ..tools.record_time import tool_record_time  # type: ignore
 from ..tools.remember_master import tool_remember_master  # type: ignore
 from ..tools.recommendations import tool_recommendations  # type: ignore
 from ..tools.remember_product_id_list import tool_remember_product_id_list  # type: ignore
-from ..tools.avaliable_time_for_master_list import tool_avaliable_time_for_master_list  # type: ignore
+from ..tools.class_avaliable_time_for_master_list import MCPAvailableTimeForMasterList
 
 
 async def build_mcp_anastasia() -> FastMCP:
@@ -24,9 +24,11 @@ async def build_mcp_anastasia() -> FastMCP:
     Собираем и возвращаем FastMCP сервер для Anastasia.
     Ничего не запускаем тут, только создаём объект.
     """
-    # channel_ids = get_env_csv("CHANNEL_IDS_ANASTASIA")
-    # m= await MCPSearchProductFull.create(channel_ids=channel_ids)
-    # tool_product_search = m.get_tool()
+
+    channel_name = 'sofia'
+
+    a = await MCPAvailableTimeForMasterList.create(server_name=channel_name)
+    tool_avaliable_time_for_master_list = a.get_tool()
 
     return build_mcp(
         name="Anastasia",
@@ -40,19 +42,3 @@ async def build_mcp_anastasia() -> FastMCP:
             (tool_avaliable_time_for_master_list, "zena"),
         ],
     )
-
-
-if __name__ == "__main__":
-    run_standalone(
-        build=build_mcp_anastasia,
-        port_env="MCP_PORT_ANASTASIA",
-        defaults={
-            "MCP_PORT_ANASTASIA": "5007",
-            "CHANNEL_IDS_ANASTASIA": "7",
-        },
-        print_tools=True,
-    )
-
-
-# cd /home/copilot_superuser/petrunin/zena/mcpserver
-# uv run --active python -m src.server.server_sse_anastasia_v2

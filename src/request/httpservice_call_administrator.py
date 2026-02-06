@@ -41,27 +41,44 @@ httpservice.ai2b.pro.
 Мы используем стандартный retry из src/http_retry.py:
 - параметры берутся из settings.py (env)
 - поведение единое для всего проекта
+
+Отправляет "историю/контекст диалога" на endpoint сервиса.
+- HTTP клиент берём из src.clients.get_http()
+- retry через @CRM_HTTP_RETRY
+- settings/env читаем ЛЕНИВО (важно для init_runtime())
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TypedDict, Any
+from typing import Any, TypedDict
 
 import httpx
 
 from src.clients import get_http
-from src.settings import get_settings
 from src.http_retry import CRM_HTTP_RETRY
+from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-S = get_settings()
-
 HISTORY_OUTGOING_PATH = "/v1/telegram/n8n/outgoing"
 
-# Итоговый URL строим через settings, чтобы домен можно было менять через env.
-URL_OUTGOING  = f"{S.CRM_BASE_URL.rstrip('/')}{HISTORY_OUTGOING_PATH}"
+
+def outgoing_url() -> str:
+    """
+    Ленивая сборка URL, чтобы settings/env читались только при реальном вызове функции,
+    а не на импорте модуля.
+    """
+    s = get_settings()
+    return f"{s.CRM_BASE_URL.rstrip('/')}{HISTORY_OUTGOING_PATH}"
+
+
+def crm_timeout_s() -> float:
+    """
+    Ленивая вычитка таймаута из settings (единый стандарт).
+    """
+    return float(get_settings().CRM_HTTP_TIMEOUT_S)
+
 
 class HttpServiceAdministratorPayload(TypedDict):
     user_id: int
@@ -99,8 +116,8 @@ async def httpservice_call_administrator(
     """
     Публичная функция.
 
-    Мы оставляем большую сигнатуру, чтобы не менять код во всём проекте.
-    Внутри собираем payload и передаём в низкоуровневую функцию отправки.
+    Сигнатуру оставляем широкой для совместимости.
+    Внутри собираем payload и отправляем в низкоуровневую функцию.
     """
     logger.info("httpservice_call_administrator")
 
@@ -110,7 +127,7 @@ async def httpservice_call_administrator(
     tools_args = tools_args or {}
     tools_result = tools_result or {}
 
-    payload: HttpServiceAdministratorPayload  = {
+    payload: HttpServiceAdministratorPayload = {
         "user_id": user_id,
         "user_companychat": user_companychat,
         "reply_to_history_id": reply_to_history_id,
@@ -130,13 +147,19 @@ async def httpservice_call_administrator(
     try:
         await _call_administrator_payload(payload)
         return {"success": True, "data": "Администратор вызван."}
+
     except httpx.HTTPStatusError as e:
         logger.warning(
             "httpservice http error status=%s body=%s",
             e.response.status_code,
             e.response.text[:500],
         )
-        return {"success": False, "error": f"status={e.response.status_code}", "details": e.response.text[:500]}
+        return {
+            "success": False,
+            "error": f"status={e.response.status_code}",
+            "details": e.response.text[:500],
+        }
+
     except httpx.RequestError as e:
         logger.warning("httpservice request error: %s", str(e))
         return {"success": False, "error": "network_error", "details": str(e)}
@@ -146,28 +169,13 @@ async def httpservice_call_administrator(
 async def _call_administrator_payload(payload: HttpServiceAdministratorPayload) -> None:
     """
     Низкоуровневая функция, которая реально делает HTTP запрос.
-
-    Почему retry здесь?
-    -------------------
-    Декоратор @CRM_HTTP_RETRY будет повторять запросы только при временных проблемах:
-    - timeout / network error
-    - HTTP 429
-    - HTTP 5xx
-
-    Если ошибка "логическая" (например 401/403/404/400) — retry не делается.
+    Retry применяется только к временным проблемам (timeout/network/429/5xx).
     """
-   
     client = get_http()
 
-    # Если когда-нибудь решите передавать токен через заголовок:
-    # headers = {"Authorization": f"Bearer {payload['access_token']}", "Accept": "application/json"}
-    # Но сейчас ваш API принимает access_token в JSON — поэтому headers не нужны.
-
     resp = await client.post(
-        URL_OUTGOING,
+        outgoing_url(),
         json=payload,
-        # Таймаут берём из settings (единый стандарт).
-        timeout=httpx.Timeout(S.CRM_HTTP_TIMEOUT_S),
+        timeout=httpx.Timeout(crm_timeout_s()),
     )
     resp.raise_for_status()
-    return None

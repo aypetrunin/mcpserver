@@ -31,6 +31,8 @@ async def build_mcp_valentina() -> FastMCP:
     Собираем и возвращаем FastMCP сервер для Valentina.
     Ничего не запускаем тут, только создаём объект.
     """
+
+    channel_name = 'valentina'
     channel_ids = get_env_csv("CHANNEL_IDS_VALENTINA")
 
     # tool для product search, зависящий от channel_ids
@@ -40,11 +42,11 @@ async def build_mcp_valentina() -> FastMCP:
     r = await MCPClientRecords.create(channel_ids=channel_ids)
     tool_records_valentina = r.get_tool()
 
-    a = await MCPAvailableTimeForMaster.create(channel_ids=channel_ids)
+    a = await MCPAvailableTimeForMaster.create(server_name=channel_name, channel_ids=channel_ids)
     tool_avaliable_time_for_master = a.get_tool()
 
     return build_mcp(
-        name="Valentina",
+        name=channel_name,
         mounts=[
             (tool_faq, "zena"),
             (tool_services, "zena"),

@@ -11,9 +11,18 @@
 - НЕ хранить URL, построенный из settings, как глобальную константу
   (URL строим лениво в момент реального запроса)
 
-Почему это важно:
-- модуль может быть импортирован тестами/скриптами ДО init_runtime()
-- если settings читаются при импорте — вы получаете "не тот env" или падение
+ВАЖНО ПРО ВРЕМЯ / ТАЙМ-ЗОНЫ
+---------------------------
+1) Тайм-зона привязана к MCP-серверу (агенту): MCP_TZ_<SERVER>.
+   Все филиалы, обслуживаемые данным сервером, находятся в одной тайм-зоне.
+
+2) Слоты, приходящие из CRM, считаются "уже в правильной тайм-зоне".
+   На практике это значит:
+   - если строка слота содержит TZ/offset (ISO8601 "+03:00" или "Z") — парсим как есть;
+   - если TZ/offset отсутствует (например "YYYY-MM-DD HH:MM") — считаем это локальным временем агента
+     и "приклеиваем" TZ агента.
+
+Для этого используем timezone_utils.parse_slot(...) и timezone_utils.now_local(...).
 """
 
 from __future__ import annotations
@@ -26,9 +35,10 @@ import httpx
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
+from ..timezone_utils import now_local, parse_slot
 from ._crm_http import crm_timeout_s, crm_url
 
-logger = logging.getLogger(__name__.split('.')[-1])
+logger = logging.getLogger(__name__.split(".")[-1])
 
 DT_FMT_DATE = "%Y-%m-%d"
 DT_FMT_SLOT = "%Y-%m-%d %H:%M"
@@ -73,17 +83,17 @@ def filter_sequences_list(name: str, sequences_list: list[dict[str, Any]]) -> li
     return [item for item in sequences_list if item.get("master_name") == expected]
 
 
-def filter_future_slots(masters_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def filter_future_slots(server_name: str, masters_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Оставляем только будущие слоты (slot_datetime > now).
+    Оставляем только будущие слоты (slot_datetime > now) с учётом TZ агента.
 
     Вход:
     [
-      {"master_name": ..., "master_id": ..., "master_slots": ["YYYY-MM-DD HH:MM", ...]},
+      {"master_name": ..., "master_id": ..., "master_slots": ["YYYY-MM-DD HH:MM" | ISO8601, ...]},
       ...
     ]
     """
-    now = datetime.now()
+    now = now_local(server_name)
     result: list[dict[str, Any]] = []
 
     for master in masters_data:
@@ -96,7 +106,7 @@ def filter_future_slots(masters_data: list[dict[str, Any]]) -> list[dict[str, An
             if not isinstance(slot, str):
                 continue
             try:
-                if datetime.strptime(slot, DT_FMT_SLOT) > now:
+                if parse_slot(server_name, slot, fmt_no_tz=DT_FMT_SLOT) > now:
                     filtered_slots.append(slot)
             except ValueError:
                 # Если CRM прислала слот в непредвиденном формате — просто пропускаем
@@ -211,6 +221,8 @@ async def avaliable_time_for_master_list_async(
     date: str,
     service_id: str,
     service_name: str,
+    *,
+    server_name: str,
     count_slots: int = 30,
     timeout: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -232,16 +244,20 @@ async def avaliable_time_for_master_list_async(
             [{sequence_id, start_time, services:[...]}...]
         иначе []
     """
-    
+
     # 1) Базовая валидация входных параметров
     if not isinstance(service_id, str) or not service_id.strip():
         return _error_tuple("Не задан service_id")
+
+    if not isinstance(server_name, str) or not server_name.strip():
+        return _error_tuple("Не задан server_name (нужен для TZ)")
 
     d = _parse_date(date)
     if d is None:
         return _error_tuple(f"Неверный формат даты: {date}. Ожидается 'YYYY-MM-DD'")
 
-    today = datetime.now().date()
+    # Дата/сегодня считаются в TZ агента
+    today = now_local(server_name).date()
     if d < today:
         return _error_tuple(f"Нельзя записаться на прошедшее число. Сегодня {today.strftime(DT_FMT_DATE)}")
 
@@ -295,14 +311,14 @@ async def avaliable_time_for_master_list_async(
             if not isinstance(dates, list):
                 continue
 
-            # Слоты — строки вида "YYYY-MM-DD HH:MM"
+            # Слоты — строки (могут быть "YYYY-MM-DD HH:MM" или ISO8601 с TZ/offset)
             dates_str = [s for s in dates if isinstance(s, str)]
 
-            # Сортируем по времени (чтобы slots шли по возрастанию)
+            # Сортируем по времени (чтобы slots шли по возрастанию), учитывая TZ
             parsed_pairs: list[tuple[datetime, str]] = []
             for s in dates_str:
                 try:
-                    parsed_pairs.append((datetime.strptime(s, DT_FMT_SLOT), s))
+                    parsed_pairs.append((parse_slot(server_name, s, fmt_no_tz=DT_FMT_SLOT), s))
                 except ValueError:
                     continue
             parsed_pairs.sort(key=lambda x: x[0])
@@ -319,7 +335,7 @@ async def avaliable_time_for_master_list_async(
 
         # Ваши бизнес-фильтры
         sequences_list = filter_sequences_list(product_name, sequences_list)
-        sequences_list = filter_future_slots(sequences_list)
+        sequences_list = filter_future_slots(server_name, sequences_list)
         return sequences_list, []
 
     # -------------------- Комплекс --------------------
@@ -337,10 +353,6 @@ async def avaliable_time_for_master_list_async(
         return sequences_list, short_list
 
     return [], []
-
-
-
-
 
 
 # """Модуль поиска свободных слотов по мастерам.

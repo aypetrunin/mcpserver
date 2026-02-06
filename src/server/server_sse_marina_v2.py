@@ -31,18 +31,21 @@ async def build_mcp_marina() -> FastMCP:
     Собираем и возвращаем FastMCP сервер для Marina.
     Ничего не запускаем тут, только создаём объект.
     """
+
+    channel_name = 'marina'
     channel_ids = get_env_csv("CHANNEL_IDS_MARINA")
+
     m = await MCPSearchProductFull.create(channel_ids=channel_ids)
     tool_product_search_marina = m.get_tool()
 
     r = await MCPClientRecords.create(channel_ids=channel_ids)
     tool_records_marina = r.get_tool()
 
-    a = await MCPAvailableTimeForMaster.create(channel_ids=channel_ids)
+    a = await MCPAvailableTimeForMaster.create(server_name=channel_name, channel_ids=channel_ids)
     tool_avaliable_time_for_master = a.get_tool()
 
     return build_mcp(
-        name="Marina",
+        name=channel_name,
         mounts=[
             (tool_faq, "zena"),
             (tool_services, "zena"),

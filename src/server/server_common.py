@@ -5,8 +5,6 @@ from typing import Iterable, Tuple, List, Callable, Mapping, Optional, Awaitable
 from fastmcp import FastMCP
 from pprint import pprint
 
-from fastmcp import FastMCP
-
 
 Mount = Tuple[object, str]  # (tool, namespace)
 

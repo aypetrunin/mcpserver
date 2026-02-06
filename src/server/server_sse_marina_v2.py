@@ -1,5 +1,5 @@
 """
-Модуль сборки MCP-сервера для фирмы Sofia.
+Модуль сборки MCP-сервера для фирмы Marina.
 
 ВАЖНО:
 - Никаких чтений env, print, создания клиентов на уровне модуля.
@@ -71,8 +71,8 @@ if __name__ == "__main__":
         build=build_mcp_marina,
         port_env="MCP_PORT_MARINA",
         defaults={
-            "MCP_PORT_SOFIA": "5099",
-            "CHANNEL_IDS_SOFIA": "24",
+            "MCP_PORT_MARINA": "5099",
+            "CHANNEL_IDS_MARINA": "24",
         },
         print_tools=True,
     )
@@ -80,4 +80,4 @@ if __name__ == "__main__":
 
 
 # cd /home/copilot_superuser/petrunin/zena/mcpserver
-# uv run --active python -m src.server.server_sse_sofia_v2
+# uv run --active python -m src.server.server_sse_marina_v2

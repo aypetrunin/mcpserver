@@ -5,9 +5,9 @@ from typing import Any
 from fastmcp import FastMCP
 
 from ..qdrant.retriever_faq_services import retriver_hybrid_async  # type: ignore
-from ..qdrant.retriever_faq_services import QDRANT_COLLECTION_SERVICES  # type: ignore
+from ..qdrant.retriever_faq_services import qdrant_collection_services  # type: ignore
 
-
+QDRANT_COLLECTION_SERVICES = qdrant_collection_services()
 
 tool_recommendations = FastMCP(name="recommendations")
 

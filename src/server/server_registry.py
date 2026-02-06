@@ -20,7 +20,7 @@ from fastmcp import FastMCP
 # Тип factory-функции, которая "собирает" MCP-сервер.
 # Важно: build() НЕ запускает сервер, а только создаёт объект FastMCP.
 # --------------------------------------------------------------------------
-BuildFn = Callable[[], FastMCP | Awaitable[FastMCP]]
+BuildFn = Callable[[], Awaitable[FastMCP]]
 
 
 @dataclass(frozen=True)

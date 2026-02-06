@@ -1,48 +1,69 @@
-"""Модуль функции ретривера векторных баз faq, services и временной для маппмнга."""
+"""
+Модуль функции ретривера векторных баз faq, services и временной для маппинга.
 
-import logging
+Важно:
+- НЕ читаем env на уровне модуля.
+- Коллекции берём из get_settings() лениво (после init_runtime()).
+"""
+
 import asyncio
-import os
+import logging
+from functools import lru_cache
 from typing import Any
 
 from qdrant_client import models
 
+from src.settings import get_settings
 from .retriever_common import (
-    ada_embeddings,  # Функция генерации dense-векторов OpenAI (Ada)
-    get_bm25_model, # Sparse-векторная модель BM25 (fastembed)
+    ada_embeddings,     # Функция генерации dense-векторов OpenAI (Ada)
+    get_bm25_model,     # Sparse-векторная модель BM25 (fastembed)
     get_qdrant_client,  # Асинхронный клиент Qdrant
-    retry_request,  # Обёртка для надёжного выполнения с повторными попытками
+    retry_request,      # Обёртка для надёжного выполнения с повторными попытками
 )
 
 logger = logging.getLogger(__name__)
 
-# ===============================================================
-# 🔧 Конфигурация коллекций Qdrant
-# ===============================================================
-QDRANT_COLLECTION_FAQ = os.getenv("QDRANT_COLLECTION_FAQ", "zena2_faq_2")
-QDRANT_COLLECTION_SERVICES = os.getenv("QDRANT_COLLECTION_SERVICES", "zena2_services_2")
 
-# ---------------------------------------------------------------
-# 📦 Маппинг полей для каждой коллекции
-# ---------------------------------------------------------------
-DATABASE_FIELDS = {
-    QDRANT_COLLECTION_FAQ: [
-        "question",  # Текст вопроса
-        "answer",  # Текст ответа
-    ],
-    QDRANT_COLLECTION_SERVICES: [
-        "services_name",  # Название услуги
-        "body_parts",  # Части тела, на которые воздействует услуга
-        "description",  # Описание услуги
-        "contraindications",  # Противопоказания
-        "indications",  # Показания
-        "pre_session_instructions",  # Инструкции перед сеансом
-    ],
-    "zena2_services_key": [  # Используется для маппинга products и services
-        "id",  # Текст вопроса
-        "services_name",  # Текст ответа
-    ],
-}
+# ===============================================================
+# 🔧 Ленивая конфигурация коллекций Qdrant (через Settings)
+# ===============================================================
+def qdrant_collection_faq() -> str:
+    return get_settings().QDRANT_COLLECTION_FAQ
+
+
+def qdrant_collection_services() -> str:
+    return get_settings().QDRANT_COLLECTION_SERVICES
+
+
+@lru_cache(maxsize=1)
+def database_fields() -> dict[str, list[str]]:
+    """
+    Ленивая и кешируемая карта полей по коллекциям.
+
+    Почему так:
+    - get_settings() читает env один раз и кешируется
+    - database_fields() строится после init_runtime(), когда env уже загружен
+    - избегаем "захвата" дефолтов при импорте модуля
+    """
+    s = get_settings()
+    return {
+        s.QDRANT_COLLECTION_FAQ: [
+            "question",
+            "answer",
+        ],
+        s.QDRANT_COLLECTION_SERVICES: [
+            "services_name",
+            "body_parts",
+            "description",
+            "contraindications",
+            "indications",
+            "pre_session_instructions",
+        ],
+        "zena2_services_key": [  # Используется для маппинга products и services
+            "id",
+            "services_name",
+        ],
+    }
 
 
 # ===============================================================
@@ -52,24 +73,18 @@ async def points_to_dict(
     points: list[models.PointStruct],
     database_name: str,
 ) -> list[dict[str, Any]]:
-    """Преобразует список объектов Qdrant в список словарей с данными из payload.
+    """Преобразует список объектов Qdrant в список словарей с данными из payload."""
+    fields = database_fields().get(database_name, [])
+    result: list[dict[str, Any]] = []
 
-    Аргументы:
-        points (PointStruct): список точек из результата запроса Qdrant
-        database_name: имя коллекции, чтобы определить нужные поля
-
-    Возвращает:
-        Список словарей, содержащих только релевантные поля (по коллекции).
-    """
-    fields = DATABASE_FIELDS.get(database_name, [])
-    result = []
     for point in points:
-        if point.payload is None:  # ← Защита от None
+        if point.payload is None:  # защита от None
             continue
-        
+
         payload = {field: point.payload.get(field) for field in fields}
         payload["id"] = point.id
         result.append(payload)
+
     return result
 
 
@@ -83,55 +98,31 @@ async def retriver_hybrid_async(
     hybrid: bool = True,
     limit: int = 5,
 ) -> list[dict[str, Any]]:
-    """Гибридный поиск.
-
-    Асинхронный поиск в Qdrant с поддержкой:
-      • dense-векторов (OpenAI Ada)
-      • sparse-векторов (BM25)
-      • гибридного объединения (RRF fusion)
-      • надёжных повторных попыток через retry_request
-
-    Аргументы:
-        query: текст поискового запроса
-        database_name: имя коллекции (FAQ или Services)
-        channel_id: фильтр по ID канала (опционально)
-        hybrid: если True — используется гибридный поиск (Ada + BM25)
-        limit: количество возвращаемых результатов
-
-    Возвращает:
-        Список словарей с найденными объектами из Qdrant.
-    """
+    """Гибридный поиск в Qdrant (Ada + BM25 + RRF fusion) с retry."""
 
     async def _retriever_logic() -> list[dict[str, Any]]:
-        # -------------------------------------------------------
-        # 1️⃣ Генерация dense-вектора через OpenAI Ada
-        # -------------------------------------------------------
+        # 1) Dense-вектор через OpenAI Ada
         query_vector = (await ada_embeddings([query]))[0]
 
-        # -------------------------------------------------------
-        # 2️⃣ Генерация sparse-вектора BM25, если включён гибрид
-        # -------------------------------------------------------
+        # 2) Sparse-вектор BM25, если включён гибрид
+        query_bm25 = None
         if hybrid:
             query_bm25 = next(get_bm25_model().query_embed(query))
 
-        # -------------------------------------------------------
-        # 3️⃣ Формируем фильтр по channel_id (если задан)
-        # -------------------------------------------------------
+        # 3) Фильтр по channel_id (если задан)
         query_filter = None
-        if channel_id:
+        if channel_id is not None:
             query_filter = models.Filter(
                 must=[
                     models.FieldCondition(
-                        key="channel_id", match=models.MatchValue(value=channel_id)
+                        key="channel_id",
+                        match=models.MatchValue(value=channel_id),
                     )
                 ]
             )
 
-        # -------------------------------------------------------
-        # 4️⃣ Выполнение поиска в Qdrant
-        # -------------------------------------------------------
-        if hybrid:
-            # --- Гибридный режим: объединяем Ada и BM25 ---
+        # 4) Поиск в Qdrant
+        if hybrid and query_bm25 is not None:
             prefetch = [
                 models.Prefetch(query=query_vector, using="ada-embedding", limit=limit),
                 models.Prefetch(
@@ -143,15 +134,12 @@ async def retriver_hybrid_async(
             response = await get_qdrant_client().query_points(
                 collection_name=database_name,
                 prefetch=prefetch,
-                query=models.FusionQuery(
-                    fusion=models.Fusion.RRF
-                ),  # Reciprocal Rank Fusion
+                query=models.FusionQuery(fusion=models.Fusion.RRF),
                 query_filter=query_filter,
                 with_payload=True,
                 limit=limit,
             )
         else:
-            # --- Обычный dense-поиск (только Ada) ---
             response = await get_qdrant_client().query_points(
                 collection_name=database_name,
                 query=query_vector,
@@ -161,14 +149,9 @@ async def retriver_hybrid_async(
                 limit=limit,
             )
 
-        # -------------------------------------------------------
-        # 5️⃣ Преобразуем результаты в читаемый список
-        # -------------------------------------------------------
+        # 5) Преобразование результатов
         return await points_to_dict(response.points, database_name)
 
-    # -------------------------------------------------------
-    # 🔁 Оборачиваем вызов в retry_request для устойчивости
-    # -------------------------------------------------------
     return await retry_request(_retriever_logic)
 
 
@@ -178,30 +161,22 @@ async def retriver_hybrid_async(
 if __name__ == "__main__":
 
     async def main() -> None:
-        """Тестовый пример.
-
-        Тестовый пример поиска в двух коллекциях Qdrant:
-        1. FAQ — поиск по тексту вопроса/ответа
-        2. Services — поиск по услугам с фильтрацией по каналу
-        """
-        # --- Поиск по базе FAQ ---
+        # Поиск по базе FAQ
         results_faq = await retriver_hybrid_async(
-            query="Абонент", database_name=QDRANT_COLLECTION_FAQ, channel_id=2
+            query="Абонент",
+            database_name=qdrant_collection_faq(),
+            channel_id=2,
         )
         logger.info("📘 FAQ results:")
         logger.info(results_faq)
 
-        # --- Поиск по базе услуг ---
+        # Поиск по базе услуг
         results_services = await retriver_hybrid_async(
-            query="Тейпирование", database_name=QDRANT_COLLECTION_SERVICES, channel_id=2
+            query="Тейпирование",
+            database_name=qdrant_collection_services(),
+            channel_id=2,
         )
         logger.info("💆 Services results:")
         logger.info(results_services)
 
-    # Запускаем асинхронный тест
     asyncio.run(main())
-
-
-# cd /home/copilot_superuser/petrunin/zena/mcp
-# python -m src.qdrant.retriver_faq_services
-# uv run python -m src.qdrant.retriever_faq_services

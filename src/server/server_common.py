@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-from typing import Iterable, Tuple, List, Callable, Mapping, Optional
+from typing import Iterable, Tuple, List, Callable, Mapping, Optional, Awaitable
 from fastmcp import FastMCP
 from pprint import pprint
 
@@ -44,7 +44,7 @@ def debug_print_tools(mcp: FastMCP) -> None:
 
 def run_standalone(
     *,
-    build: Callable[[], FastMCP],
+    build: Callable[[], Awaitable[FastMCP]],
     port_env: str,
     defaults: Optional[Mapping[str, str]] = None,
     host: str = "0.0.0.0",
@@ -62,7 +62,7 @@ def run_standalone(
         for k, v in defaults.items():
             os.environ.setdefault(k, v)
 
-    mcp = build()
+    mcp = asyncio.run(build())
 
     if print_tools:
         debug_print_tools(mcp)

@@ -6,8 +6,6 @@
 - Всё делаем внутри функций (factory-подход).
 """
 
-import os
-
 from fastmcp import FastMCP
 
 from .server_common import build_mcp, get_env_csv, run_standalone
@@ -20,7 +18,7 @@ from ..tools.update_client_lesson import tool_update_client_lesson  # type: igno
 from ..tools.get_client_statistics import tool_get_client_statistics  # type: ignore
 
 
-def build_mcp_alena() -> FastMCP:
+async def build_mcp_alena() -> FastMCP:
     """
     Собираем и возвращаем FastMCP сервер для Алёна.
     Ничего не запускаем тут, только создаём объект.

@@ -3,9 +3,11 @@
 from typing import Any
 from fastmcp import FastMCP
 
-from ..qdrant.retriever_faq_services import QDRANT_COLLECTION_FAQ  # type: ignore
+from ..qdrant.retriever_faq_services import qdrant_collection_faq  # type: ignore
 from ..qdrant.retriever_faq_services import retriver_hybrid_async  # type: ignore
 
+
+QDRANT_COLLECTION_FAQ =qdrant_collection_faq()
 
 tool_faq = FastMCP(name="faq")
 

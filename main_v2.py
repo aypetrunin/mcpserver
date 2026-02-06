@@ -28,8 +28,9 @@ import logging
 import os
 import signal
 import traceback
-import inspect
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Awaitable, Callable
+
+from fastmcp import FastMCP
 
 # --------------------------------------------------------------------------
 # ИМПОРТЫ РЕСУРСОВ (Postgres / HTTP клиенты)
@@ -64,7 +65,6 @@ if TYPE_CHECKING:
 # Создаём логгер с фиксированным именем.
 # Его удобно фильтровать в логах и использовать во всём файле.
 logger = logging.getLogger("mcpserver")
-
 
 def setup_logging() -> None:
     """
@@ -117,55 +117,44 @@ def require_int_env(name: str) -> int:
 # --------------------------------------------------------------------------
 # ЗАПУСК ОДНОГО MCP-СЕРВЕРА
 # --------------------------------------------------------------------------
+BuildFn = Callable[[], Awaitable[FastMCP]]
+
 async def run_one(name: str, port: int, build: BuildFn) -> None:
-    """
-    Запускает ОДИН MCP-сервер.
+    logger.info("mcp.start tenant=%s port=%s", name, port)
 
-    ВАЖНО:
-    - если task отменили (cancel) — это штатная остановка
-    - любые другие исключения должны "вылететь наружу", чтобы main сделал FAIL-FAST
-
-    Параметры:
-    - name: имя tenant'а (например "alisa", "crm", "billing")
-    - port: порт, на котором этот tenant слушает SSE
-    - build: функция, которая создаёт MCP сервер.
-      Она может быть:
-        - синхронной (возвращает FastMCP)
-        - асинхронной (возвращает awaitable, который даст FastMCP)
-    """
-    logger.info("starting MCP server", extra={"tenant": name, "port": port})
-
+    # 1) BUILD phase
     try:
-        # 1) Собираем сервер.
-        # Если build() упадёт — мы поймаем и пробросим исключение вверх.
-        mcp = build()
-        if inspect.isawaitable(mcp):
-            mcp = await mcp
+        mcp = await build()
+    except asyncio.CancelledError:
+        logger.info("mcp.build.cancelled tenant=%s port=%s", name, port)
+        raise
+    except Exception:
+        # Ключевое: отличаем "упали на сборке" от "упали на рантайме"
+        logger.exception("mcp.build.failed tenant=%s port=%s", name, port)
+        raise
+    else:
+        logger.info("mcp.build.ok tenant=%s port=%s", name, port)
 
-        # 2) Запускаем сервер и "висим" здесь, пока он жив.
-        # Пока сервер работает — эта корутина не завершится.
+    # 2) RUN phase
+    try:
         await mcp.run_async(
             transport="sse",
             host="0.0.0.0",
             port=port,
         )
-
-        # Если вдруг сервер "сам" завершился без исключения — это подозрительно.
-        # Обычно сервер должен либо работать вечно, либо упасть с ошибкой.
-        logger.error("MCP server exited without exception", extra={"tenant": name, "port": port})
-
     except asyncio.CancelledError:
-        # Это нормальный путь при shutdown: main вызывает task.cancel()
-        logger.info("MCP server shutdown requested (cancel)", extra={"tenant": name, "port": port})
+        logger.info("mcp.run.cancelled tenant=%s port=%s", name, port)
         raise
+    except OSError:
+        # Частый кейс: порт занят / нет прав / network bind error
+        logger.exception("mcp.run.oserror tenant=%s port=%s", name, port)
+        raise
+    except Exception:
+        logger.exception("mcp.run.failed tenant=%s port=%s", name, port)
+        raise
+    finally:
+        logger.info("mcp.run.exit tenant=%s port=%s", name, port)
 
-    except Exception as e:
-        # Это реальное падение сервера
-        logger.error(
-            "MCP server crashed",
-            extra={"tenant": name, "port": port, "error": repr(e)},
-        )
-        raise
 
 
 # --------------------------------------------------------------------------

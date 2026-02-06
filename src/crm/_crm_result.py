@@ -1,7 +1,3 @@
-from __future__ import annotations
-
-from typing import Literal, TypedDict, TypeVar, Generic
-
 # ============================================================================
 # ПРИМЕЧАНИЕ (важно прочитать)
 # ----------------------------------------------------------------------------
@@ -33,67 +29,37 @@ from typing import Literal, TypedDict, TypeVar, Generic
 # ❌ НЕ меняй тип error (он ВСЕГДА str)
 # ✅ Используй ТОЛЬКО функции ok() и err()
 # ============================================================================
+from __future__ import annotations
+
+from typing import Generic, Literal, TypedDict, TypeVar
+
 
 T = TypeVar("T")
 
 
 class ErrorPayload(TypedDict):
-    """
-    Стандартный формат ошибки.
+    """Описывает ошибку в стандартном формате."""
 
-    success — всегда False
-    code    — короткий машинный код ошибки (например: invalid_input, http_error)
-    error   — текст ошибки ДЛЯ ЧЕЛОВЕКА (всегда строка!)
-    """
     success: Literal[False]
     code: str
     error: str
 
 
 class OkPayload(TypedDict, Generic[T]):
-    """
-    Стандартный формат успешного ответа.
+    """Описывает успешный результат в стандартном формате."""
 
-    success — всегда True
-    data    — полезные данные (тип зависит от функции)
-    """
     success: Literal[True]
     data: T
 
 
-# Payload — это "или успех, или ошибка"
 Payload = ErrorPayload | OkPayload[T]
 
 
 def ok(data: T) -> OkPayload[T]:
-    """
-    Вернуть успешный результат.
-
-    Пример:
-        return ok(["lesson1", "lesson2"])
-    """
-    return {
-        "success": True,
-        "data": data,
-    }
+    """Возвращает успешный результат."""
+    return {"success": True, "data": data}
 
 
 def err(*, code: str, error: str) -> ErrorPayload:
-    """
-    Вернуть ошибку в стандартном формате.
-
-    Пример:
-        return err(
-            code="invalid_input",
-            error="Не передан параметр phone"
-        )
-
-    ВАЖНО:
-    - error должен быть строкой
-    - не передавай сюда dict, tuple или Exception
-    """
-    return {
-        "success": False,
-        "code": code,
-        "error": error,
-    }
+    """Возвращает ошибку в стандартном формате."""
+    return {"success": False, "code": code, "error": error}

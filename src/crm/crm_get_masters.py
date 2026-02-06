@@ -1,21 +1,6 @@
-# src/crm/crm_get_masters.py
-"""
-Модуль получения списка мастеров из CRM.
+"""Получает список мастеров из CRM.
 
-Что исправлено относительно старой версии:
------------------------------------------
-1) Убрали S = get_settings() на уровне модуля.
-   Раньше settings читались при импорте файла → могло ломаться, если init_runtime()
-   ещё не вызывался (тесты/скрипты/другой entrypoint).
-
-2) Убрали URL_MASTERS как глобальную константу, построенную из settings.
-   Теперь URL строим лениво в момент HTTP-вызова через crm_url().
-
-3) Таймаут берём единообразно через crm_timeout_s():
-   - если timeout > 0 — используем его
-   - иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
-
-Формат результата (Payload, ok/err) сохранён.
+URL и настройки вычисляются лениво при выполнении запроса, а не при импорте.
 """
 
 from __future__ import annotations
@@ -30,37 +15,29 @@ from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
 from ._crm_result import Payload, err, ok
 
-logger = logging.getLogger(__name__.split('.')[-1])
 
-# Относительный путь к методу CRM (безопасная константа)
+logger = logging.getLogger(__name__.split(".")[-1])
+
 MASTERS_PATH = "/appointments/yclients/staff/actual"
 
-# -------------------- Типы ответа CRM --------------------
 
 class Master(TypedDict, total=False):
+    """Описывает мастера."""
+
     id: int
     name: str
 
 
 class MastersOk(TypedDict):
+    """Описывает успешный ответ CRM."""
+
     success: Literal[True]
     masters: list[Master]
 
 
-# -------------------- Низкоуровневый вызов --------------------
-
 @CRM_HTTP_RETRY
 async def _fetch_masters_payload(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
-    """
-    Низкоуровневый HTTP-вызов с единым retry:
-    - timeout / network error
-    - HTTP 429
-    - HTTP 5xx
-
-    Важно:
-    - URL строим лениво через crm_url(MASTERS_PATH),
-      поэтому settings не читаются при импорте модуля.
-    """
+    """Выполняет запрос списка мастеров и возвращает JSON."""
     client = get_http()
     url = crm_url(MASTERS_PATH)
 
@@ -74,27 +51,12 @@ async def _fetch_masters_payload(payload: dict[str, Any], timeout_s: float) -> d
     data = resp.json()
     if not isinstance(data, dict):
         raise ValueError(f"Неожиданный тип JSON из CRM: {type(data)}")
-
     return data
 
 
-# -------------------- Основная функция --------------------
-
-async def get_masters(
-    channel_id: int,
-    timeout: float = 0.0,
-) -> Payload[list[Master]]:
-    """
-    Получить список мастеров для канала.
-
-    Возвращает:
-    - ok(list[Master]) — при успехе
-    - err(...)         — при ошибке
-    """
-
+async def get_masters(channel_id: int, timeout: float = 0.0) -> Payload[list[Master]]:
+    """Возвращает список мастеров для канала."""
     payload = {"channel_id": channel_id}
-
-    # Таймаут: либо параметр timeout, либо из settings (лениво)
     effective_timeout = crm_timeout_s(timeout)
 
     try:
@@ -110,25 +72,27 @@ async def get_masters(
         return err(code="http_error", error=f"CRM вернул HTTP {e.response.status_code}")
 
     except httpx.RequestError as e:
-        logger.warning("Сетевая ошибка при получении мастеров channel_id=%s: %s", channel_id, e)
+        logger.warning(
+            "Сетевая ошибка при получении мастеров channel_id=%s: %s",
+            channel_id,
+            e,
+        )
         return err(code="network_error", error="Сетевая ошибка при получении списка мастеров")
 
     except ValueError:
         logger.exception("CRM вернул некорректный JSON channel_id=%s", channel_id)
         return err(code="crm_bad_response", error="CRM вернул некорректный JSON")
 
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception("Неожиданная ошибка при получении мастеров channel_id=%s", channel_id)
         return err(code="unexpected_error", error="Неизвестная ошибка при получении списка мастеров")
-
-    # -------------------- Валидация ответа CRM --------------------
 
     if not isinstance(resp_any, dict):
         return err(code="crm_bad_response", error="CRM вернул некорректный JSON")
 
     resp = cast(dict[str, Any], resp_any)
 
-    if not resp.get("success", False):
+    if resp.get("success") is not True:
         return err(code="crm_error", error="CRM вернул ошибку при получении мастеров")
 
     masters_raw = resp.get("masters")
@@ -138,150 +102,6 @@ async def get_masters(
     masters: list[Master] = []
     for item in masters_raw:
         if isinstance(item, dict):
-            masters.append(
-                {
-                    "id": item.get("id"),
-                    "name": item.get("name"),
-                }
-            )
+            masters.append({"id": item.get("id"), "name": item.get("name")})
 
     return ok(masters)
-
-
-# crm_get_masters.py
-# """Модуль получения списка мастеров из CRM."""
-
-# import logging
-# from typing import Any, TypedDict, Literal, cast
-
-# import httpx
-# from tenacity import (
-#     retry,
-#     retry_if_exception_type,
-#     stop_after_attempt,
-#     wait_exponential,
-# )
-
-# from .crm_settings import (
-#     CRM_BASE_URL,
-#     CRM_HTTP_TIMEOUT_S,
-#     CRM_HTTP_RETRIES,
-#     CRM_RETRY_MIN_DELAY_S,
-#     CRM_RETRY_MAX_DELAY_S,
-# )
-
-# from .crm_result import Payload, ok, err
-
-
-# logger = logging.getLogger(__name__)
-
-
-# # -------------------- Типы ответа CRM --------------------
-
-# class Master(TypedDict, total=False):
-#     id: int
-#     name: str
-
-
-# class MastersOk(TypedDict):
-#     success: Literal[True]
-#     masters: list[Master]
-
-
-# # -------------------- Основная функция --------------------
-
-# @retry(
-#     stop=stop_after_attempt(CRM_HTTP_RETRIES),
-#     wait=wait_exponential(
-#         multiplier=1,
-#         min=CRM_RETRY_MIN_DELAY_S,
-#         max=CRM_RETRY_MAX_DELAY_S,
-#     ),
-#     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
-#     reraise=True,
-# )
-# async def get_masters(
-#     channel_id: int,
-#     timeout: float = CRM_HTTP_TIMEOUT_S,
-# ) -> Payload[list[Master]]:
-#     """
-#     Получить список мастеров для канала.
-
-#     Возвращает:
-#     - ok(list[Master]) — при успехе
-#     - err(...)         — при ошибке
-#     """
-#     logger.info("===crm.get_masters===")
-#     logger.info("Получение списка мастеров channel_id=%s", channel_id)
-
-#     url = f"{CRM_BASE_URL}/appointments/yclients/staff/actual"
-#     payload = {"channel_id": channel_id}
-
-#     try:
-#         async with httpx.AsyncClient(timeout=timeout) as client:
-#             logger.info("POST %s payload=%r", url, payload)
-#             response = await client.post(url, json=payload)
-#             response.raise_for_status()
-
-#             # Any допустим ТОЛЬКО здесь
-#             resp_any: Any = response.json()
-
-#     except httpx.TimeoutException as e:
-#         # timeout / connect ошибки → retry через tenacity
-#         logger.warning("Таймаут при получении мастеров channel_id=%s: %s", channel_id, e)
-#         raise
-
-#     except httpx.HTTPStatusError as e:
-#         logger.error(
-#             "HTTP %s при получении мастеров channel_id=%s",
-#             e.response.status_code,
-#             channel_id,
-#         )
-#         return err(
-#             code="http_error",
-#             error=f"CRM вернул HTTP {e.response.status_code}",
-#         )
-
-#     except Exception as e:  # noqa: BLE001
-#         logger.exception(
-#             "Неожиданная ошибка при получении мастеров channel_id=%s", channel_id
-#         )
-#         return err(
-#             code="unexpected_error",
-#             error="Неизвестная ошибка при получении списка мастеров",
-#         )
-
-#     # -------------------- Валидация ответа CRM --------------------
-
-#     if not isinstance(resp_any, dict):
-#         return err(
-#             code="crm_bad_response",
-#             error="CRM вернул некорректный JSON",
-#         )
-
-#     resp = cast(dict[str, Any], resp_any)
-
-#     if not resp.get("success", False):
-#         return err(
-#             code="crm_error",
-#             error="CRM вернул ошибку при получении мастеров",
-#         )
-
-#     masters_raw = resp.get("masters")
-#     if not isinstance(masters_raw, list):
-#         return err(
-#             code="crm_bad_response",
-#             error="CRM вернул некорректный список мастеров",
-#         )
-
-#     masters: list[Master] = []
-#     for item in masters_raw:
-#         if isinstance(item, dict):
-#             masters.append(
-#                 {
-#                     "id": item.get("id"),
-#                     "name": item.get("name"),
-#                 }
-#             )
-
-#     return ok(masters)

@@ -1,5 +1,4 @@
-"""
-tenant_anastasia.py — сборка списка tools для tenant'а Anastasia.
+"""tenant_anastasia.py — сборка списка tools для tenant'а Anastasia.
 
 ВАЖНО:
 - Никаких чтений env, print, создания клиентов на уровне модуля.
@@ -9,25 +8,29 @@ tenant_anastasia.py — сборка списка tools для tenant'а Anastas
 
 from typing import Any
 
-from ..tools.faq import tool_faq  # type: ignore
-from ..tools.services import tool_services  # type: ignore
-from ..tools.record_time import tool_record_time  # type: ignore
-from ..tools.remember_master import tool_remember_master  # type: ignore
-from ..tools.recommendations import tool_recommendations  # type: ignore
-from ..tools.remember_product_id_list import tool_remember_product_id_list  # type: ignore
-from ..tools.class_avaliable_time_for_master_list import MCPAvailableTimeForMasterList  # type: ignore
+from ..tools.class_avaliable_time_for_master_list import MCPAvailableTimeForMasterList
+from ..tools.faq import tool_faq
+from ..tools.recommendations import tool_recommendations
+from ..tools.record_time import tool_record_time
+from ..tools.remember_master import tool_remember_master
+from ..tools.remember_product_id_list import tool_remember_product_id_list
+from ..tools.services import tool_services
+
 
 Tool = Any
 
 
 async def build_tools_anastasia(server_name: str, channel_ids: list[str]) -> list[Tool]:
-    """
-    Собираем список tools для Anastasia.
+    """Собирает список tools для tenant'а Anastasia.
+
     channel_ids не используются, но оставлены для единого интерфейса.
     """
+    _ = channel_ids
 
-    a = await MCPAvailableTimeForMasterList.create(server_name=server_name)
-    tool_available_time_for_master_list = a.get_tool()
+    available_time_builder = await MCPAvailableTimeForMasterList.create(
+        server_name=server_name,
+    )
+    tool_available_time_for_master_list = available_time_builder.get_tool()
 
     return [
         tool_faq,
@@ -38,3 +41,4 @@ async def build_tools_anastasia(server_name: str, channel_ids: list[str]) -> lis
         tool_remember_product_id_list,
         tool_available_time_for_master_list,
     ]
+

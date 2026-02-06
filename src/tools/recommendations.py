@@ -4,12 +4,16 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from ..qdrant.retriever_faq_services import retriver_hybrid_async  # type: ignore
-from ..qdrant.retriever_faq_services import qdrant_collection_services  # type: ignore
+from ..qdrant.retriever_faq_services import (
+    qdrant_collection_services,  # type: ignore
+    retriever_hybrid_async,  # type: ignore
+)
+
 
 QDRANT_COLLECTION_SERVICES = qdrant_collection_services()
 
 tool_recommendations = FastMCP(name="recommendations")
+
 
 @tool_recommendations.tool(
     name="recommendations",
@@ -19,10 +23,10 @@ tool_recommendations = FastMCP(name="recommendations")
         "Позволяет узнать рекомендации к посещению.\n\n"
         "**Args:**\n"
         "- session_id(str): id dialog session. **Обязательный параметр.**\n"
-        "- product_name (str, required ): Название выбранной услуги."
-        "- channel_id (str, required ): id channal company. \n"
+        "- product_name (str, required ): Название выбранной услуги.\n"
+        "- channel_id (str, required ): id channal company.\n"
         "**Returns:**\n"
-        "- list[dict]: A list services_name, description, recommendations "
+        "- list[dict]: services_name, description, recommendations.\n"
     ),
 )
 async def recommendations(
@@ -30,20 +34,17 @@ async def recommendations(
     product_name: str,
     channel_id: int,
 ) -> list[dict[str, Any]]:
-    """Получение рекомендаций по выбранной услуге через поиск в таблице services."""
+    """Получать рекомендации по выбранной услуге через поиск в services."""
+    _ = session_id  # если реально не используешь
     try:
-        results = await retriver_hybrid_async(
+        results = await retriever_hybrid_async(
             query=product_name,
             channel_id=channel_id,
             database_name=QDRANT_COLLECTION_SERVICES,
             limit=1,
         )
+    except Exception:
+        return []
 
-        allowed_keys = ["services_name", "description", "pre_session_instructions", ]
-        filtered_results = [{k: s[k] for k in allowed_keys if k in s} for s in results]
-        
-        return filtered_results or []  # ✅ Возвращаем пустой список при None
-    
-    except Exception as e:
-
-        return []  # ✅ Безопасный fallback
+    allowed_keys = ["services_name", "description", "pre_session_instructions"]
+    return [{k: s[k] for k in allowed_keys if k in s} for s in results] or []

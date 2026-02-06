@@ -1,7 +1,4 @@
-"""
-class_avaliable_time_for_master.py
-
-MCP-инструмент (FastMCP tool) для поиска свободных слотов по мастерам.
+"""MCP-инструмент (FastMCP tool) для поиска свободных слотов по мастерам.
 
 КОНФИГУРАЦИЯ
 -----------
@@ -42,20 +39,22 @@ from __future__ import annotations
 import asyncio
 import logging
 import textwrap
-from typing import Any, Optional
+from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
-from ..crm.crm_avaliable_time_for_master import avaliable_time_for_master_async  # type: ignore
+from ..crm.crm_avaliable_time_for_master import (
+    avaliable_time_for_master_async,  # type: ignore
+)
 from ..postgres.postgres_util import read_secondary_article_by_primary  # type: ignore
+
 
 logger = logging.getLogger(__name__)
 
 
 class MCPAvailableTimeForMaster:
-    """
-    MCPAvailableTimeForMaster — MCP-обёртка над avaliable_time_for_master_async.
+    """MCPAvailableTimeForMaster — MCP-обёртка над avaliable_time_for_master_async.
 
     server_name:
     - логическое имя сервера/агента (например: "sofia", "alisa")
@@ -67,6 +66,11 @@ class MCPAvailableTimeForMaster:
     """
 
     def __init__(self, server_name: str, channel_ids: list[str]) -> None:
+        """Инициализировать MCP-инструмент поиска свободных слотов по мастеру.
+
+        Сохраняет имя MCP-сервера и список каналов, формирует описание
+        инструмента для LLM и регистрирует MCP tool.
+        """
         self.server_name: str = server_name
         self.channel_ids: list[str] = channel_ids
 
@@ -83,55 +87,64 @@ class MCPAvailableTimeForMaster:
         cls,
         server_name: str,
         channel_ids: list[str],
-    ) -> "MCPAvailableTimeForMaster":
+    ) -> MCPAvailableTimeForMaster:
+        """Создать экземпляр MCPAvailableTimeForMaster.
+
+        Проверяет имя сервера/агента и список каналов, после чего
+        инициализирует MCP-инструмент для поиска доступного времени.
+        """
         if not server_name:
-            raise RuntimeError("server_name пустой. Ожидается имя сервера/агента (например: 'sofia').")
-        if not channel_ids:
             raise RuntimeError(
-                "channel_ids пустой. Проверь переменную окружения CHANNEL_IDS_*"
+                "server_name пустой. Ожидается имя сервера/агента (например: 'sofia')."
             )
+        if not channel_ids:
+            raise RuntimeError("channel_ids пустой. Проверь переменную окружения CHANNEL_IDS_*")
         return cls(server_name=server_name, channel_ids=channel_ids)
 
     def _set_description(self) -> str:
-        return textwrap.dedent(
-            """
-            MCP tool: avaliable_time_for_master — поиск свободных слотов по мастерам
+        """Сформировать description для LLM/агента."""
+        return (
+            textwrap.dedent(
+                """
+                MCP tool: avaliable_time_for_master — поиск свободных слотов по мастерам
 
-            Возвращает список доступного времени для записи на услугу в выбранную дату.
+                Возвращает список доступного времени для записи на услугу в выбранную дату.
 
-            **Когда использовать:**
-            - Клиент спрашивает свободные слоты на конкретную услугу
-            - Нужно показать расписание мастеров по услуге
+                **Когда использовать:**
+                - Клиент спрашивает свободные слоты на конкретную услугу
+                - Нужно показать расписание мастеров по услуге
 
-            **Примеры вопросов:**
-            - Какие есть свободные слоты на УЗИ 5 августа?
-            - Могу ли я записаться на приём к косметологу 12 июля?
-            - Проверьте доступное время для гастроскопии на следующей неделе
-            - Когда можно записаться к Кристине?
+                **Примеры вопросов:**
+                - Какие есть свободные слоты на УЗИ 5 августа?
+                - Могу ли я записаться на приём к косметологу 12 июля?
+                - Проверьте доступное время для гастроскопии на следующей неделе
+                - Когда можно записаться к Кристине?
 
-            **Args:**
-            - `session_id` (`str`, required):
-              id dialog session
-            - `office_id` (`str`, required):
-              id филиала (приоритетный филиал)
-            - `product_id` (`str`, required):
-              идентификатор услуги в формате "1-232324"
-            - `date` (`str`, required):
-              дата в формате YYYY-MM-DD
+                **Args:**
+                - `session_id` (`str`, required):
+                  id dialog session
+                - `office_id` (`str`, required):
+                  id филиала (приоритетный филиал)
+                - `product_id` (`str`, required):
+                  идентификатор услуги в формате "1-232324"
+                - `date` (`str`, required):
+                  дата в формате YYYY-MM-DD
 
-            **Returns:**
-            list[dict]:
-              [
-                {
-                  "office_id": "1",
-                  "avaliable_time": [
-                      {"master_name": "...", "master_id": 123, "master_slots": [...]}
-                  ],
-                  "message": "..."
-                }
-              ]
-            """
-        ).strip()
+                **Returns:**
+                list[dict]:
+                  [
+                    {
+                      "office_id": "1",
+                      "avaliable_time": [
+                          {"master_name": "...", "master_id": 123, "master_slots": [...]}
+                      ],
+                      "message": "..."
+                    }
+                  ]
+                """
+            )
+            .strip()
+        )
 
     def _register_tool(self) -> FunctionTool:
         @self.tool_avaliable_time_for_master.tool(
@@ -250,7 +263,7 @@ class MCPAvailableTimeForMaster:
 
         return avaliable_time_for_master
 
-    async def _filter_channel_ids(self, exclude: Optional[str] = None) -> list[str]:
+    async def _filter_channel_ids(self, exclude: str | None = None) -> list[str]:
         ids = self.channel_ids
 
         if exclude is not None:
@@ -281,7 +294,7 @@ class MCPAvailableTimeForMaster:
         primary_channel: str,
         office_id: str,
     ) -> str:
-        """Возвращает артикул услуги для конкретного филиала."""
+        """Получить артикул услуги для конкретного филиала."""
         if office_id == primary_channel:
             return primary_product_id
 
@@ -297,10 +310,11 @@ class MCPAvailableTimeForMaster:
         try:
             primary_channel_int = int(primary_channel)
             office_id_int = int(office_id)
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(
-                f"Invalid channel/office id. primary_channel={primary_channel!r}, office_id={office_id!r}"
-            )
+                "Invalid channel/office id. "
+                f"primary_channel={primary_channel!r}, office_id={office_id!r}"
+            ) from exc
 
         product_for_office = await read_secondary_article_by_primary(
             primary_article=primary_product_id,
@@ -331,9 +345,9 @@ class MCPAvailableTimeForMaster:
         )
 
     def get_tool(self) -> FastMCP:
-        """Возвращает FastMCP-инструмент для монтирования."""
+        """Вернуть FastMCP-инструмент для монтирования."""
         return self.tool_avaliable_time_for_master
 
     def get_description(self) -> str:
-        """Возвращает description (удобно для отладки)."""
+        """Вернуть description (удобно для отладки)."""
         return self.description

@@ -3,6 +3,7 @@
 
 from fastmcp import FastMCP
 
+
 tool_remember_lesson_id = FastMCP(name="remember_lesson_id")
 
 
@@ -38,7 +39,6 @@ async def remember_lesson_id(
     reason: str
 ) -> dict[str, str]:
     """Функция фиксации выбранной услуги клиентом."""
-
     return {
         "phone": phone,
         "channel_id": channel_id,

@@ -1,12 +1,14 @@
-# src/settings.py
+"""Настройки приложения, загружаемые из переменных окружения."""
+
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from functools import lru_cache
+import os
 
 
 def _str(name: str, default: str | None = None, *, required: bool = False) -> str:
+    """Возвращает строковую переменную окружения."""
     v = os.getenv(name)
     if v is None or v.strip() == "":
         if required:
@@ -18,6 +20,7 @@ def _str(name: str, default: str | None = None, *, required: bool = False) -> st
 
 
 def _int(name: str, default: int | None = None, *, required: bool = False) -> int:
+    """Возвращает целочисленную переменную окружения."""
     v = os.getenv(name)
     if v is None or v.strip() == "":
         if required:
@@ -31,7 +34,13 @@ def _int(name: str, default: int | None = None, *, required: bool = False) -> in
         raise RuntimeError(f"Invalid int env var {name}={v!r}") from e
 
 
-def _float(name: str, default: float | None = None, *, required: bool = False) -> float:
+def _float(
+    name: str,
+    default: float | None = None,
+    *,
+    required: bool = False,
+) -> float:
+    """Возвращает числовую переменную окружения с плавающей точкой."""
     v = os.getenv(name)
     if v is None or v.strip() == "":
         if required:
@@ -47,6 +56,8 @@ def _float(name: str, default: float | None = None, *, required: bool = False) -
 
 @dataclass(frozen=True, slots=True)
 class Settings:
+    """Контейнер настроек приложения."""
+
     # Runtime
     ENV: str
     LOG_LEVEL: str
@@ -89,6 +100,7 @@ class Settings:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Загружает и кэширует настройки приложения."""
     # Runtime
     env = _str("ENV", "dev")
     log_level = _str("LOG_LEVEL", "INFO")
@@ -123,7 +135,7 @@ def get_settings() -> Settings:
     qdrant_products = _str("QDRANT_COLLECTION_PRODUCTS", required=True)
     qdrant_temp = _str("QDRANT_COLLECTION_TEMP", required=True)
 
-    # OpenAI (ключ обычно обязателен в prod; в dev можно оставить пустым, если хотите)
+    # OpenAI
     openai_key = _str("OPENAI_API_KEY", "")
     openai_timeout = _float("OPENAI_TIMEOUT_S", _float("OPENAI_TIMEOUT", 60.0))
     openai_proxy = _str("OPENAI_PROXY_URL", "")
@@ -133,13 +145,11 @@ def get_settings() -> Settings:
     return Settings(
         ENV=env,
         LOG_LEVEL=log_level,
-
         CRM_BASE_URL=crm_base_url,
         CRM_HTTP_TIMEOUT_S=crm_timeout,
         CRM_HTTP_RETRIES=crm_retries,
         CRM_RETRY_MIN_DELAY_S=crm_min_delay,
         CRM_RETRY_MAX_DELAY_S=crm_max_delay,
-
         POSTGRES_HOST=pg_host,
         POSTGRES_PORT=pg_port,
         POSTGRES_DB=pg_db,
@@ -150,7 +160,6 @@ def get_settings() -> Settings:
         PG_CONNECT_TIMEOUT_S=pg_connect_timeout,
         PG_STATEMENT_TIMEOUT_MS=pg_stmt_timeout,
         PG_QUERY_TIMEOUT_S=pg_query_timeout,
-
         QDRANT_URL=qdrant_url,
         QDRANT_TIMEOUT=qdrant_timeout,
         QDRANT_API_KEY=qdrant_api_key,
@@ -158,7 +167,6 @@ def get_settings() -> Settings:
         QDRANT_COLLECTION_SERVICES=qdrant_services,
         QDRANT_COLLECTION_PRODUCTS=qdrant_products,
         QDRANT_COLLECTION_TEMP=qdrant_temp,
-
         OPENAI_API_KEY=openai_key,
         OPENAI_TIMEOUT_S=openai_timeout,
         OPENAI_PROXY_URL=openai_proxy,

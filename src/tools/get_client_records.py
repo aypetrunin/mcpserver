@@ -1,9 +1,11 @@
-"""MCP-сервер для поиска текущих записей услуг клиента"""
+"""MCP-сервер для поиска текущих записей услуг клиента."""
 
-from typing import Any, Dict
+from typing import Any
+
 from fastmcp import FastMCP
 
 from ..crm.crm_get_client_records import get_client_records  # type: ignore
+
 
 tool_records = FastMCP(name="records")
 
@@ -30,8 +32,8 @@ tool_records = FastMCP(name="records")
 async def records(
     user_companychat: str,
     channel_id: str,
-) -> Dict[str, Any]:
-    """Функция поиска текущих записей на услуги."""
+) -> dict[str, Any]:
+    """Получить текущие записи клиента на услуги."""
     try:
         return await get_client_records(
             user_companychat=int(user_companychat),

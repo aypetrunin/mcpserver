@@ -1,5 +1,4 @@
-"""
-tenant_alena.py — сборка списка tools для tenant'а Алёна (alena).
+"""tenant_alena.py — сборка списка tools для tenant'а Алёна (alena).
 
 ВАЖНО:
 - Никаких чтений env, print, создания клиентов на уровне модуля.
@@ -9,19 +8,19 @@ tenant_alena.py — сборка списка tools для tenant'а Алёна 
 
 from typing import Any
 
-from ..tools.faq import tool_faq  # type: ignore
-from ..tools.lesson_id import tool_remember_lesson_id  # type: ignore
-from ..tools.get_client_lessons import tool_get_client_lessons  # type: ignore
-from ..tools.update_client_info import tool_update_client_info  # type: ignore
-from ..tools.update_client_lesson import tool_update_client_lesson  # type: ignore
-from ..tools.get_client_statistics import tool_get_client_statistics  # type: ignore
+from ..tools.faq import tool_faq
+from ..tools.get_client_lessons import tool_get_client_lessons
+from ..tools.get_client_statistics import tool_get_client_statistics
+from ..tools.lesson_id import tool_remember_lesson_id
+from ..tools.update_client_info import tool_update_client_info
+from ..tools.update_client_lesson import tool_update_client_lesson
+
 
 Tool = Any
 
 
 async def build_tools_alena(server_name: str, channel_ids: list[str]) -> list[Tool]:
-    """
-    Собираем список tools для Алёна.
+    """Собирает список tools для tenant'а Алёна.
 
     channel_ids сейчас не используются, но оставлены для единого интерфейса
     (все tenant builders имеют одинаковую сигнатуру).
@@ -38,3 +37,4 @@ async def build_tools_alena(server_name: str, channel_ids: list[str]) -> list[To
         tool_update_client_lesson,
         tool_get_client_statistics,
     ]
+

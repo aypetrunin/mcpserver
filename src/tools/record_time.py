@@ -1,4 +1,4 @@
-"""MCP-сервер записи клиента на выбранную услугу на определенную дату и время."""
+"""MCP-сервер записи клиента на выбранную услугу на дату и время."""
 
 from typing import Any
 
@@ -14,25 +14,20 @@ tool_record_time = FastMCP(name="record_time")
 @tool_record_time.tool(
     name="record_time",
     description=(
-        """
-        Запись клиента на медицинскую услугу в выбранную дату и время.
-
-        **Назначение:**
-        Используется, когда клиент подтвердил желание записаться на конкретную услугу в указанное время.
-        Фиксирует запись с именем и телефоном клиента для последующего подтверждения или обработки администрацией.
-
-        **Args:**
-        - session_id(str): id dialog session. **Обязательный параметр.**
-        - office_id(str): id филиала. **Обязательный параметр.**
-        - date (str): Дата записи в формате YYYY-MM-DD. Пример: '2025-07-22'. **Обязательный параметр.**
-        - time (str): Время записи в формате HH:MM. Пример: '8:00', '13:00'. **Обязательный параметр.**
-        - product_id (str): Идентификатор услуги. Формат: '1-232324'. **Обязательный параметр.**
-        - client_id (int): ID клиента. **Обязательный параметр.**
-        - master_id (int): ID мастера. **Не обязательный параметр.**
-
-        **Returns:**
-        - dict: success = True, если запись прошла успешно, иначе False.
-        """
+        "Запись клиента на медицинскую услугу в выбранную дату и время.\n\n"
+        "**Назначение:**\n"
+        "Используется, когда клиент подтвердил желание записаться на конкретную услугу "
+        "в указанное время. Фиксирует запись для последующего подтверждения или обработки.\n\n"
+        "**Args:**\n"
+        "- session_id (`str`, required): ID dialog session.\n"
+        "- office_id (`str`, required): ID филиала.\n"
+        "- date (`str`, required): Дата записи в формате YYYY-MM-DD (пример: 2025-07-22).\n"
+        "- time (`str`, required): Время записи в формате HH:MM (пример: 08:00, 13:00).\n"
+        "- product_id (`str`, required): Идентификатор услуги (формат: 1-232324).\n"
+        "- client_id (`int`, required): ID клиента.\n"
+        "- master_id (`int`, optional): ID мастера.\n\n"
+        "**Returns:**\n"
+        "- `dict`: Результат записи (success=True при успехе).\n"
     ),
 )
 async def record_time(
@@ -44,44 +39,40 @@ async def record_time(
     client_id: int,
     master_id: int = 0,
 ) -> dict[str, Any]:
-    """Функция записи на выбранную услугу на определенную дату и время."""
+    """Записать клиента на услугу на указанную дату и время."""
+    _ = session_id  # session_id используется в описании tool-а; тут не нужен
 
-    print("mcp_record_time")
-    print(f"office_id: {office_id}")
-    print(f"product_id: {product_id}")
-
-    # 1) Достаём primary_channel из product_id (это строка, например "1")
     primary_channel_str = product_id.split("-", 1)[0]
-    print(f"primary_channel: {primary_channel_str}")
 
-    # 2) Нормализуем office_id и primary_channel к int ДЛЯ Postgres
-    # (в CRM product_id остаётся строкой вида "1-xxxx")
     try:
         office_id_int = int(office_id)
-    except ValueError:
-        raise ValueError(f"Некорректный office_id: {office_id!r}. Ожидалось число, например '19'.")
+    except ValueError as exc:
+        raise ValueError(
+            f"Некорректный office_id: {office_id!r}. Ожидалось число, например '19'."
+        ) from exc
 
     try:
         primary_channel_int = int(primary_channel_str)
-    except ValueError:
+    except ValueError as exc:
         raise ValueError(
-            f"Некорректный primary_channel в product_id: {product_id!r}. "
-            f"Ожидался формат 'число-число', например '1-232324'."
-        )
+            "Некорректный primary_channel в product_id: "
+            f"{product_id!r}. Ожидался формат 'число-число', например '1-232324'."
+        ) from exc
 
-    # 3) Сравниваем как числа (чтобы не было сюрпризов с "01" vs "1")
     if office_id_int != primary_channel_int:
-        # read_secondary_article_by_primary, судя по ошибке asyncpg, ожидает int-ы
-        product_id = await read_secondary_article_by_primary(
-            primary_article=product_id,              # это строка артикула "1-232324" — так и надо
-            primary_channel=primary_channel_int,     # ✅ int
-            secondary_channel=office_id_int,         # ✅ int
+        secondary_product_id = await read_secondary_article_by_primary(
+            primary_article=product_id,
+            primary_channel=primary_channel_int,
+            secondary_channel=office_id_int,
         )
+        if secondary_product_id is None:
+            raise RuntimeError(
+                "Не найден secondary article для услуги. "
+                f"primary={product_id!r} primary_channel={primary_channel_int!r} office_id={office_id_int!r}"
+            )
+        product_id = secondary_product_id
 
-    print(f"resolved product_id: {product_id}")
-
-    # 4) Записываем в CRM (product_id должен быть строкой)
-    response = await record_time_async(
+    return await record_time_async(
         date=date,
         time=time,
         product_id=product_id,
@@ -89,4 +80,3 @@ async def record_time(
         staff_id=master_id,
     )
 
-    return response

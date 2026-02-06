@@ -1,7 +1,9 @@
-"""MCP-сервер фиксирующий выбранную клиентом услугу в базе данных."""
+"""MCP-сервер для фиксации выбранных клиентом услуг в базе данных."""
 
 from typing import Any
+
 from fastmcp import FastMCP
+
 
 tool_remember_product_id_list = FastMCP(name="remember_product_id_list")
 
@@ -9,32 +11,28 @@ tool_remember_product_id_list = FastMCP(name="remember_product_id_list")
 @tool_remember_product_id_list.tool(
     name="remember_product_id_list",
     description=(
-        """
-        Подтверждение/выбор клиентом нужной услуги/услуг.
-        Пример: Выбираю LPG-массаж. Запишите на эпиляцию ног. Хочу стрижку модельную. Хочу Прессотерапия и Роликовый массажер. 1 и 2.
-                 
-        **Args:**\n
-        - session_id(str): id dialog session. **Обязательный параметр.**\n
-        - product_id (list[str]): id выбранной/ых услуги. **Обязательный параметр.** Обязательный формат id ("2-113323232")\n
-        - product_name (list[str]): название выбранной/ых услуги **Обязательный параметр.**\n
-        **Returns:**\n
-        - list[dict]: Вернет не пустой список если прошло успешно.
-        """
+        "Фиксация выбранной клиентом услуги или списка услуг.\n\n"
+        "Примеры:\n"
+        "- «Выбираю LPG-массаж»\n"
+        "- «Запишите на эпиляцию ног»\n"
+        "- «Хочу прессотерапию и роликовый массажёр»\n\n"
+        "**Args:**\n"
+        "- session_id (`str`, required): ID диалоговой сессии.\n"
+        "- product_id (`list[str]`, required): Список ID услуг (формат: 2-113323232).\n"
+        "- product_name (`list[str]`, required): Список названий услуг.\n\n"
+        "**Returns:**\n"
+        "- `list[dict]`: Список выбранных услуг (product_id + product_name).\n"
     ),
 )
 async def remember_product_id(
     session_id: str,
     product_id: list[str],
-    product_name: list[str]
+    product_name: list[str],
 ) -> list[dict[str, Any]]:
-    """Функция фиксации выбранной услуги клиентом."""
-    try:
-        result = [
-            {"product_id": v1, "product_name": v2}
-            for v1, v2 in zip(product_id, product_name)
-        ]
+    """Зафиксировать выбранные клиентом услуги."""
+    _ = session_id  # используется в контексте диалога, здесь не нужен
 
-    except Exception as e:
-        raise RuntimeError(f"Ошибка remember_product_id: {e}")
-
-    return result
+    return [
+        {"product_id": pid, "product_name": pname}
+        for pid, pname in zip(product_id, product_name)
+    ]

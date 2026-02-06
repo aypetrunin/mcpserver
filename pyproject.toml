@@ -57,31 +57,50 @@ default-groups = ["dev"]
 
 [tool.ruff]
 line-length = 88
+target-version = "py311"
 
-lint.select = [
-    "E",    # pycodestyle
-    "F",    # pyflakes
-    "I",    # isort
-    "D",    # pydocstyle
-    "D401", # первая строка docstring — повелительное наклонение
-    "T201", # принты
-    "UP",   # pyupgrade
+[tool.ruff.lint]
+select = [
+  "E",      # pycodestyle
+  "F",      # pyflakes
+  "I",      # isort
+  "UP",     # pyupgrade
+  "D",      # pydocstyle (включая D100/D101/D102/D103/D104/D107 и D401)
+  "T201",   # запрет print()
+  "G",      # logging (G004: запрет f-string в logger.*)
+  "RUF100", # контроль noqa (лишние/неиспользуемые)
 ]
 
-lint.ignore = [
-    "UP006",
-    "UP007",
-    "UP035", # разрешено import из typing_extensions
-    "D417",  # не требуем полных docstring для всех аргументов
-    "E501",  # не проверяем длину строки
+ignore = [
+  "E501",  # длина строки (контролируем line-length/format)
+  "D417",  # не требуем документировать все аргументы (у тебя Args в description=)
+  # Конфликты по оформлению docstring у классов:
+  # выбираем D211/D212-стиль (без пустой строки перед class docstring, summary в первой строке)
+  "D203",  # 1 blank line required before class docstring (конфликтует с D211)
+  "D213",  # Multi-line docstring summary should start at the second line (конфликтует с D212)
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D", "UP"]
+"tests/**" = ["D", "UP"]
+"src/**/__init__.py" = ["D104"]
 
 [tool.ruff.lint.pydocstyle]
-convention = "google"
+convention = "pep257"
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+lines-after-imports = 2
+
+# Если используешь ruff format:
+# ruff format будет приводить код к единому виду, а ruff check будет проверять правила.
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+
+ 
 
 [tool.mypy]
 plugins = ["pydantic.mypy"] # Включает плагин Pydantic для корректной типизации моделей и автогенерации сигнатур конструкторов

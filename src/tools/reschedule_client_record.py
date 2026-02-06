@@ -1,12 +1,14 @@
-#reschedule_client_record.py
-"""MCP-сервер для переноса для переноса записей услуг клиента"""
+"""MCP-сервер для переноса записей услуг клиента."""
 
-from typing import Any, Dict, Optional
+from typing import Any
+
 from fastmcp import FastMCP
 
 from ..crm.crm_reschedule_client_record import reschedule_client_record  # type: ignore
 
+
 tool_record_reschedule = FastMCP(name="record_reschedule")
+
 
 @tool_record_reschedule.tool(
     name="record_reschedule",
@@ -52,8 +54,14 @@ async def reschedule_record(
     date: str,
     time: str,
     master_id: str,
-    comment: Optional[str] = None,
-) -> Dict[str, Any]:
+    comment: str | None = None,
+) -> dict[str, Any]:
+    """Перенести существующую запись клиента в CRM.
+
+    Выполняет изменение даты, времени и/или мастера для уже созданной записи
+    клиента. Используется только для переноса записи, не для её отмены или
+    удаления.
+    """
     try:
         return await reschedule_client_record(
             user_companychat=int(user_companychat),
@@ -66,3 +74,4 @@ async def reschedule_record(
         )
     except ValueError:
         return {"success": False, "error": "Запись не перенесена: некорректные ID."}
+

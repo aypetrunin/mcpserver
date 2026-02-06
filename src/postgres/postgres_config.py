@@ -1,4 +1,8 @@
-# src/postgres/postgres_config.py
+"""Формирование конфигурации подключения к PostgreSQL.
+
+Модуль извлекает параметры подключения из настроек приложения
+и возвращает их в виде словаря для инициализации клиента БД.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +10,7 @@ from src.settings import get_settings
 
 
 def get_postgres_config() -> dict[str, str | int]:
-    """
-    Возвращает параметры подключения к Postgres из Settings.
+    """Возвращает параметры подключения к Postgres из Settings.
 
     Fail-fast обеспечивается в get_settings(): если required env нет — падаем там.
     """

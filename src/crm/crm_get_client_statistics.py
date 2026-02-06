@@ -1,51 +1,37 @@
-# src/crm/crm_get_client_statistics.py
+"""Получает статистику посещений клиента в GO CRM и рассчитывает абонемент."""
+
 from __future__ import annotations
 
-"""
-Получение статистики посещений клиента (GO CRM) + расчёт параметров абонемента.
-
-Что исправлено относительно старой версии:
------------------------------------------
-1) Убрали S = get_settings() на уровне модуля.
-   Раньше settings читались при импорте файла → могло ломаться, если init_runtime()
-   ещё не вызывался (тесты/скрипты/другой entrypoint).
-
-2) Убрали URL_CLIENT_INFO как глобальную константу, построенную из settings.
-   Теперь URL строим лениво в момент HTTP-вызова через crm_url().
-
-3) Таймаут берём единообразно через crm_timeout_s():
-   - если timeout > 0 — используем его
-   - иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
-
-Бизнес-логика и формат ответа сохранены.
-"""
-
-import logging
-import httpx
-import re
-
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Literal, Optional, TypedDict
+import logging
+import re
+from typing import Any, Literal, TypedDict
+
 from dateutil.relativedelta import relativedelta
+import httpx
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
 
-logger = logging.getLogger(__name__.split('.')[-1])
 
-# Относительный путь к методу GO CRM (безопасная константа)
+logger = logging.getLogger(__name__.split(".")[-1])
+
 CLIENT_INFO_PATH = "/appointments/go_crm/client_info"
 
 
 class ErrorResponse(TypedDict):
+    """Описывает ответ с ошибкой."""
+
     success: Literal[False]
     error: str
 
 
 class SuccessResponse(TypedDict):
+    """Описывает успешный ответ."""
+
     success: Literal[True]
-    message: Dict[str, Any]
+    message: dict[str, Any]
 
 
 ResponsePayload = ErrorResponse | SuccessResponse
@@ -53,16 +39,7 @@ ResponsePayload = ErrorResponse | SuccessResponse
 
 @CRM_HTTP_RETRY
 async def _fetch_client_info(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
-    """
-    Низкоуровневый HTTP-вызов с единым retry-поведением:
-    - timeout / network error
-    - HTTP 429
-    - HTTP 5xx
-
-    Важно:
-    - URL строим лениво через crm_url(CLIENT_INFO_PATH),
-      поэтому settings не читаются при импорте модуля.
-    """
+    """Выполняет запрос к GO CRM и возвращает JSON."""
     client = get_http()
     url = crm_url(CLIENT_INFO_PATH)
 
@@ -84,19 +61,7 @@ async def go_get_client_statisics(
     channel_id: str = "20",
     timeout: float = 0.0,
 ) -> ResponsePayload:
-    """
-    Получение статистических данных о посещении занятий клиента (GO CRM).
-
-    Параметры:
-    - phone: телефон клиента
-    - channel_id: id канала/филиала (по умолчанию "20")
-    - timeout: если >0 — используем его, иначе берём settings.CRM_HTTP_TIMEOUT_S (лениво)
-
-    Возвращает:
-    - {"success": True,  "message": {...}}  — успех
-    - {"success": False, "error": "..."}    — ошибка
-    """
-
+    """Возвращает статистику посещений и параметры абонемента."""
     if not isinstance(phone, str) or not phone.strip():
         return {"success": False, "error": "Не указан телефон клиента (phone)"}
 
@@ -104,8 +69,6 @@ async def go_get_client_statisics(
         return {"success": False, "error": "Не указан channel_id"}
 
     payload = {"channel_id": channel_id, "phone": phone}
-
-    # Таймаут — ленивый (берём из settings только при вызове)
     effective_timeout = crm_timeout_s(timeout)
 
     fallback_err = "Сервис GO CRM временно недоступен. Обратитесь к администратору."
@@ -114,7 +77,6 @@ async def go_get_client_statisics(
         resp_json = await _fetch_client_info(payload=payload, timeout_s=effective_timeout)
 
     except httpx.HTTPStatusError as e:
-        # Сюда попадём, если retry исчерпан или статус неретраибельный (4xx кроме 429)
         logger.warning(
             "http error status=%s body=%s",
             e.response.status_code,
@@ -123,29 +85,29 @@ async def go_get_client_statisics(
         return {"success": False, "error": fallback_err}
 
     except httpx.RequestError as e:
-        # Сюда попадём, если retry исчерпан по сетевым ошибкам
-        logger.warning("request error payload=%s: %s", payload, str(e))
+        logger.warning("request error payload=%s: %s", payload, e)
         return {"success": False, "error": fallback_err}
 
     except ValueError:
         logger.exception("invalid json payload=%s", payload)
         return {"success": False, "error": fallback_err}
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.exception("unexpected error payload=%s: %s", payload, e)
         return {"success": False, "error": fallback_err}
 
     if resp_json.get("success") is not True:
-        msg = f"Нет данных в системе для channel_id={channel_id}, phone={phone}"
-        logger.warning(msg)
-        # В оригинале возвращался fallback_err — сохраняем поведение
+        logger.warning(
+            "no data for channel_id=%s phone=%s",
+            channel_id,
+            phone,
+        )
         return {"success": False, "error": fallback_err}
 
     visits = resp_json.get("visits", [])
     abonements = resp_json.get("abonements", [])
 
     if visits == [] and abonements == []:
-        # Важно: message — dict (так это уже используется в crm_update_client_lesson.py)
         return {
             "success": True,
             "message": {
@@ -163,62 +125,42 @@ async def go_get_client_statisics(
 
 
 class AbonementCalculator:
-    """
-    Калькулятор абонемента на основе списка посещений.
-
-    Вход:
-    - records: список словарей, где каждый словарь — запись о посещении/событии.
-
-    Выход:
-    - словарь summary с параметрами абонемента:
-      total lessons, used, remaining, transfers и т.д.
-    """
+    """Рассчитывает параметры абонемента по списку посещений."""
 
     DATE_FMT = "%d.%m.%Y"
     RE_ABONEMENT = re.compile(r"х(\d+)\s*№(\d+)")
 
-    def __init__(self, records: List[Dict[str, Any]]):
+    def __init__(self, records: list[dict[str, Any]]):
+        """Создаёт калькулятор абонемента."""
         self.records = records
 
-    # ---------- helpers ----------
-    def _parse_date(self, s: str) -> Optional[datetime]:
-        """Парсим дату вида 'DD.MM.YYYY'."""
+    def _parse_date(self, s: str) -> datetime | None:
+        """Парсит дату DD.MM.YYYY."""
         return datetime.strptime(s, self.DATE_FMT) if s else None
 
-    def _format_date(self, dt: Optional[datetime]) -> Optional[str]:
-        """Форматируем datetime обратно в строку 'DD.MM.YYYY'."""
+    def _format_date(self, dt: datetime | None) -> str | None:
+        """Форматирует дату в DD.MM.YYYY."""
         return dt.strftime(self.DATE_FMT) if dt else None
 
-    def _find_start_record(self) -> Optional[Dict[str, Any]]:
-        """Ищем стартовую запись абонемента."""
-        # предпочтительно is_start, но поддержим и comment == 'СТАРТ'
-        return next((r for r in self.records if r.get("is_start") or r.get("comment") == "СТАРТ"), None)
+    def _find_start_record(self) -> dict[str, Any] | None:
+        """Находит стартовую запись абонемента."""
+        return next(
+            (r for r in self.records if r.get("is_start") or r.get("comment") == "СТАРТ"),
+            None,
+        )
 
-    def _parse_abonement_text(self, text: str) -> tuple[Optional[int], Optional[str]]:
-        """
-        Разбираем строку абонемента вида 'х10 №12345':
-        - lessons_total = 10
-        - abonement_number = '12345'
-        """
+    def _parse_abonement_text(self, text: str) -> tuple[int | None, str | None]:
+        """Извлекает количество занятий и номер абонемента из текста."""
         m = self.RE_ABONEMENT.search(text or "")
         if not m:
             return None, None
         return int(m.group(1)), m.group(2)
 
-    # ---------- core ----------
-    def calculate(self) -> Dict[str, Any]:
-        """
-        Основной расчёт абонемента.
-
-        Логика сохранена как в исходном коде:
-        - конец абонемента = старт + 30 дней
-        - used_lessons считаем по посещениям, исключая start/finish и makeup
-        - "переносы" = посещения после end_dt
-        - next_transfer_after зависит от transfers_used
-        """
+    def calculate(self) -> dict[str, Any]:
+        """Рассчитывает параметры абонемента."""
         start_record = self._find_start_record()
 
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "abonement_number": None,
             "lessons_total": None,
             "start_date": None,
@@ -249,7 +191,7 @@ class AbonementCalculator:
 
         used = 0
         makeup = 0
-        transfer_dates: List[datetime] = []
+        transfer_dates: list[datetime] = []
 
         for r in self.records:
             dt = self._parse_date(r.get("date"))
@@ -287,230 +229,3 @@ class AbonementCalculator:
         summary["next_transfer_after"] = self._format_date(next_after)
 
         return summary
-
-
-
-
-
-# import httpx
-# import logging
-# import httpx
-
-# from typing import Any, Literal, TypedDict, cast
-
-# logger = logging.getLogger(__name__)
-
-
-# from tenacity import (
-#     retry,
-#     retry_if_exception_type,
-#     stop_after_attempt,
-#     wait_exponential,
-# )
-# from .crm_settings import (
-#     CRM_BASE_URL,
-#     CRM_HTTP_TIMEOUT_S,
-#     CRM_HTTP_RETRIES,
-#     CRM_RETRY_MIN_DELAY_S,
-#     CRM_RETRY_MAX_DELAY_S,
-# )
-# class ErrorResponse(TypedDict):
-#     success: Literal[False]
-#     error: str
-
-# class SuccessResponse(TypedDict):
-#     success: Literal[True]
-#     message: str
-
-# ResponsePayload = ErrorResponse | SuccessResponse
-
-
-# @retry(
-#     stop=stop_after_attempt(CRM_HTTP_RETRIES),
-#     wait=wait_exponential(multiplier=1, min=CRM_RETRY_MIN_DELAY_S, max=CRM_RETRY_MAX_DELAY_S),
-#     retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
-#     reraise=True,
-# )
-# async def go_get_client_statisics(
-#     phone: str,
-#     channel_id: str = '20',
-#     timeout: float = CRM_HTTP_TIMEOUT_S,
-# ) -> ResponsePayload:
-#     """Получение статистических данных о посещении занятий клиентов."""
-
-#     logger.info("===crm.go_get_client_statisics===")
-
-#     url = f"{CRM_BASE_URL}/appointments/go_crm/client_info"
-
-#     payload = {
-#         "channel_id": channel_id,
-#         "phone": phone
-#     }
-
-#     logger.info("Отправка запроса на %s с payload=%r", url, payload)
-
-#     try:
-#         msg_err = {"message": "Сервис GO CRM временно не работает. Овратитесь к администратору."}
-#         async with httpx.AsyncClient(timeout=timeout) as client:
-#             response = await client.post(url, json=payload)
-#             response.raise_for_status()
-#             resp_json: dict[str, Any] = response.json()
-#             logger.info(f"resp_json: {resp_json}")
-
-#     except (httpx.TimeoutException, httpx.ConnectError) as e:
-#         msg = f"Сетевая ошибка при доступе к серверу {url} с payload={payload!r}: {e}"
-#         logger.exception(msg)
-#         return ErrorResponse(success=False, error=msg_err)
-    
-#     except httpx.HTTPError as e:
-#         msg = f"HTTP-ошибка при доступе к серверу {url} с payload={payload!r}: {e}"
-#         logger.exception(msg)
-#         return ErrorResponse(success=False, error=msg_err)
-    
-#     except Exception as e:  # noqa: BLE001
-#         msg = f"Неожиданная ошибка при доступе к серверу {url} с payload={payload!r}: {e}"
-#         logger.exception(msg)
-#         return  ErrorResponse(success=False, error=msg_err)
-
-#     if not bool(resp_json.get("success")):
-#         msg = f"Нет данных в системе для channel_id={channel_id}, phone={phone}",
-#         logger.warning(msg)
-#         return ErrorResponse(success=False, error=msg_err)
-
-#     if resp_json.get("abonements") == [] and resp_json.get("visits") == []:
-#         msg = {"message": "У Вас еще нет посещений, абонемент начнет действовать с даты первого посещения в течении 30 дней."}
-#     else:
-#         msg= resp_json
-#         logger.info(f"go_get_client_statisics - resp_json: {resp_json}")
-#         # Начало действия абонемента
-#         visits = resp_json.get("visits", [])
-#         calc = AbonementCalculator(visits)
-#         msg = calc.calculate()
-#         logger.info(f"msg: {msg}")
-
-
-#     return SuccessResponse(
-#         success=True,
-#         message=msg,
-#     )
-
-
-# import re
-# from datetime import datetime, timedelta
-# from typing import Any, Dict, List, Optional
-# from dateutil.relativedelta import relativedelta
-
-
-# class AbonementCalculator:
-#     DATE_FMT = "%d.%m.%Y"
-#     RE_ABONEMENT = re.compile(r"х(\d+)\s*№(\d+)")
-
-#     def __init__(self, records: List[Dict[str, Any]]):
-#         self.records = records
-
-#     # ---------- helpers ----------
-#     def _parse_date(self, s: str) -> Optional[datetime]:
-#         return datetime.strptime(s, self.DATE_FMT) if s else None
-
-#     def _format_date(self, dt: Optional[datetime]) -> Optional[str]:
-#         return dt.strftime(self.DATE_FMT) if dt else None
-
-#     def _find_start_record(self) -> Optional[Dict[str, Any]]:
-#         # предпочтительно is_start, но поддержим и comment == 'СТАРТ'
-#         return next((r for r in self.records if r.get("is_start") or r.get("comment") == "СТАРТ"), None)
-
-#     def _parse_abonement_text(self, text: str) -> tuple[Optional[int], Optional[str]]:
-#         m = self.RE_ABONEMENT.search(text or "")
-#         if not m:
-#             return None, None
-#         return int(m.group(1)), m.group(2)
-
-#     def _is_lesson(self, r: Dict[str, Any]) -> bool:
-#         # “занятие”, а не старт/финиш/отработка
-#         return (not r.get("is_start")) and (not r.get("is_finish")) and (not r.get("is_makeup"))
-
-#     # ---------- core ----------
-#     def calculate(self) -> Dict[str, Any]:
-#         start_record = self._find_start_record()
-
-#         summary: Dict[str, Any] = {
-#             "abonement_number": None,
-#             "lessons_total": None,
-#             "start_date": None,
-#             "end_date": None,
-
-#             "used_lessons": 0,          # списано из абонемента
-#             "remaining_lessons": None,  # осталось всего (по числу занятий)
-
-#             "makeup_lessons": 0,        # отработки (не списывают)
-
-#             "transfers_used": 0,        # переносы (занятия после конца абонемента)
-#             "transfers_left": None,     # сколько переносов ещё можно сделать (из остатка занятий)
-#             "next_transfer_after": None # дата, после которой можно переносить следующее занятие
-#         }
-
-#         if not start_record:
-#             return summary
-
-#         # 1) парсим абонемент
-#         lessons_total, abonement_number = self._parse_abonement_text(start_record.get("abonement", ""))
-#         summary["lessons_total"] = lessons_total
-#         summary["abonement_number"] = abonement_number
-
-#         # 2) даты
-#         start_dt = self._parse_date(start_record.get("date"))
-#         summary["start_date"] = self._format_date(start_dt)
-#         end_dt = start_dt + timedelta(days=30) if start_dt else None
-#         summary["end_date"] = self._format_date(end_dt)
-
-#         # если нет даты окончания — дальше считать бессмысленно
-#         if not end_dt:
-#             return summary
-
-#         # 3) подсчёты занятий
-#         used = 0
-#         makeup = 0
-#         transfer_dates: List[datetime] = []
-
-#         for r in self.records:
-#             dt = self._parse_date(r.get("date"))
-
-#             # отработки
-#             if r.get("is_makeup"):
-#                 makeup += 1
-#                 continue
-
-#             # старт/финиш не считаем как занятие
-#             if r.get("is_start") or r.get("is_finish"):
-#                 continue
-
-#             # обычное занятие (списываем)
-#             used += 1
-
-#             # перенос = занятие после окончания абонемента
-#             if dt and dt > end_dt:
-#                 transfer_dates.append(dt)
-
-#         transfer_dates.sort()
-
-#         summary["used_lessons"] = used
-#         summary["makeup_lessons"] = makeup
-#         summary["transfers_used"] = len(transfer_dates)
-
-#         if lessons_total is not None:
-#             summary["remaining_lessons"] = max(lessons_total - used, 0)
-#             # переносить можно только из оставшихся занятий (по твоему описанию)
-#             summary["transfers_left"] = max(summary["remaining_lessons"] - summary["transfers_used"], 0)
-
-#         # 4) дата, после которой можно переносить следующее занятие
-#         transfers_used = summary["transfers_used"]
-#         if transfers_used == 0:
-#             next_after = end_dt  # если нужно "со следующего дня": end_dt + timedelta(days=1)
-#         elif transfers_used == 1:
-#             next_after = transfer_dates[-1]
-#         else:
-#             next_after = end_dt + relativedelta(months=1)
-
-#         summary["next_transfer_after"] = self._format_date(next_after)
-
-#         return summary

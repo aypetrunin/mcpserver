@@ -1,11 +1,12 @@
-"""
-class_avaliable_time_for_master_list.py
+# class_avaliable_time_for_master_list.py
 
-MCP-инструмент (FastMCP tool) для поиска свободных слотов по мастерам
-для списка услуг (одиночная услуга или комплекс).
+"""MCP-инструмент для поиска свободных слотов по мастерам.
+
+Используется для подбора доступного времени для одной услуги
+или комплекса услуг с учётом тайм-зоны MCP-сервера.
 
 КОНФИГУРАЦИЯ
------------
+------------
 Тайм-зона задаётся на уровне MCP-сервера (агента) через env:
 
     MCP_TZ_SOFIA=Asia/Krasnoyarsk
@@ -16,7 +17,7 @@ MCP-инструмент (FastMCP tool) для поиска свободных �
     tool = m.get_tool()
 
 ПРИМЕЧАНИЕ ПО ТАЙМ-ЗОНАМ
-------------------------
+-----------------------
 CRM-слой выполняет:
 - сравнения "прошло/не прошло"
 - сортировку слотов
@@ -38,12 +39,12 @@ from ..crm.crm_avaliable_time_for_master_list import (
     avaliable_time_for_master_list_async,  # type: ignore
 )
 
+
 logger = logging.getLogger(__name__)
 
 
 class MCPAvailableTimeForMasterList:
-    """
-    MCPAvailableTimeForMasterList — MCP-обёртка над avaliable_time_for_master_list_async.
+    """MCPAvailableTimeForMasterList — MCP-обёртка над avaliable_time_for_master_list_async.
 
     server_name:
     - логическое имя сервера/агента (например: "sofia", "alisa")
@@ -51,6 +52,11 @@ class MCPAvailableTimeForMasterList:
     """
 
     def __init__(self, server_name: str) -> None:
+        """Инициализировать MCP-инструмент поиска свободных слотов по мастерам.
+
+        Сохраняет имя MCP-сервера, формирует описание инструмента для LLM
+        и регистрирует MCP tool для получения доступного времени.
+        """
         self.server_name: str = server_name
 
         self.description: str = self._set_description()
@@ -62,7 +68,12 @@ class MCPAvailableTimeForMasterList:
         self._register_tool()
 
     @classmethod
-    async def create(cls, server_name: str) -> "MCPAvailableTimeForMasterList":
+    async def create(cls, server_name: str) -> MCPAvailableTimeForMasterList:
+        """Создать экземпляр MCPAvailableTimeForMasterList.
+
+        Проверяет корректность имени сервера/агента и инициализирует
+        MCP-инструмент для поиска доступного времени.
+        """
         if not server_name or not isinstance(server_name, str):
             raise RuntimeError(
                 "server_name пустой. Ожидается имя сервера/агента (например: 'sofia')."
@@ -113,10 +124,7 @@ class MCPAvailableTimeForMasterList:
             product_id: list[str],
             product_name: list[str],
         ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-            """
-            Функция поиска свободных слотов по мастерам для списка услуг.
-            """
-
+            """Функция поиска свободных слотов по мастерам для списка услуг."""
             list_products_id = ", ".join(product_id)
             list_products_name = ", ".join(product_name)
 

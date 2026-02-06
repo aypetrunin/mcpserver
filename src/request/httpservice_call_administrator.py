@@ -1,5 +1,4 @@
-"""
-httpservice_call_administrator.py
+"""Вызов администратора через httpservice.ai2b.pro.
 
 Назначение (для новичка)
 ========================
@@ -19,14 +18,14 @@ httpservice.ai2b.pro.
 
 Правильный подход:
 ------------------
-1) Мы создаём общий httpx.AsyncClient ОДИН раз при старте процесса:
+1) Мы создаём общий httpx.AsyncClient один раз при старте процесса:
       await init_clients()
    (в main_v2.py)
 
 2) Потом в любом месте берём общий клиент:
       client = get_http()
 
-3) На shutdown закрываем клиента ОДИН раз:
+3) На shutdown закрываем клиента один раз:
       await close_clients()
 
 Зачем retry?
@@ -45,7 +44,7 @@ httpservice.ai2b.pro.
 Отправляет "историю/контекст диалога" на endpoint сервиса.
 - HTTP клиент берём из src.clients.get_http()
 - retry через @CRM_HTTP_RETRY
-- settings/env читаем ЛЕНИВО (важно для init_runtime())
+- settings/env читаем лениво (важно для init_runtime())
 """
 
 from __future__ import annotations
@@ -59,28 +58,26 @@ from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
 from src.settings import get_settings
 
+
 logger = logging.getLogger(__name__)
 
 HISTORY_OUTGOING_PATH = "/v1/telegram/n8n/outgoing"
 
 
 def outgoing_url() -> str:
-    """
-    Ленивая сборка URL, чтобы settings/env читались только при реальном вызове функции,
-    а не на импорте модуля.
-    """
+    """Возвращает полный URL endpoint для отправки исходящей истории."""
     s = get_settings()
     return f"{s.CRM_BASE_URL.rstrip('/')}{HISTORY_OUTGOING_PATH}"
 
 
 def crm_timeout_s() -> float:
-    """
-    Ленивая вычитка таймаута из settings (единый стандарт).
-    """
+    """Возвращает таймаут HTTP-запросов к CRM в секундах."""
     return float(get_settings().CRM_HTTP_TIMEOUT_S)
 
 
 class HttpServiceAdministratorPayload(TypedDict):
+    """Payload запроса на вызов администратора."""
+
     user_id: int
     user_companychat: int
     reply_to_history_id: int
@@ -113,15 +110,14 @@ async def httpservice_call_administrator(
     dialog_state_new: str = "",
     call_manager: bool = True,
 ) -> dict[str, Any]:
-    """
-    Публичная функция.
+    """Отправляет запрос на вызов администратора через httpservice.
 
-    Сигнатуру оставляем широкой для совместимости.
-    Внутри собираем payload и отправляем в низкоуровневую функцию.
+    Возвращает словарь статуса вида:
+    - {"success": True, "data": "..."} при успехе
+    - {"success": False, "error": "...", "details": "..."} при ошибке
     """
     logger.info("httpservice_call_administrator")
 
-    # защита от mutable default arguments
     tokens = tokens or {}
     tools = tools or []
     tools_args = tools_args or {}
@@ -147,28 +143,26 @@ async def httpservice_call_administrator(
     try:
         await _call_administrator_payload(payload)
         return {"success": True, "data": "Администратор вызван."}
-
-    except httpx.HTTPStatusError as e:
+    except httpx.HTTPStatusError as exc:
         logger.warning(
             "httpservice http error status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
+            exc.response.status_code,
+            exc.response.text[:500],
         )
         return {
             "success": False,
-            "error": f"status={e.response.status_code}",
-            "details": e.response.text[:500],
+            "error": f"status={exc.response.status_code}",
+            "details": exc.response.text[:500],
         }
-
-    except httpx.RequestError as e:
-        logger.warning("httpservice request error: %s", str(e))
-        return {"success": False, "error": "network_error", "details": str(e)}
+    except httpx.RequestError as exc:
+        logger.warning("httpservice request error: %s", exc)
+        return {"success": False, "error": "network_error", "details": str(exc)}
 
 
 @CRM_HTTP_RETRY
 async def _call_administrator_payload(payload: HttpServiceAdministratorPayload) -> None:
-    """
-    Низкоуровневая функция, которая реально делает HTTP запрос.
+    """Отправляет payload на endpoint httpservice.
+
     Retry применяется только к временным проблемам (timeout/network/429/5xx).
     """
     client = get_http()

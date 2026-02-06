@@ -1,10 +1,14 @@
-# src/crm/crm_settings.py
+"""Ленивая прокладка к CRM-настройкам из Settings."""
+
 from __future__ import annotations
+
+from typing import Any
 
 from src.settings import get_settings
 
-# Ленивая прокладка: значения берём только при первом обращении
-def __getattr__(name: str):
+
+def __getattr__(name: str) -> Any:
+    """Возвращает CRM-настройку по имени атрибута."""
     s = get_settings()
     mapping = {
         "CRM_BASE_URL": s.CRM_BASE_URL,
@@ -17,3 +21,4 @@ def __getattr__(name: str):
         return mapping[name]
     except KeyError as e:
         raise AttributeError(name) from e
+

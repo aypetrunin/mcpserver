@@ -1,9 +1,11 @@
-"""MCP-сервер для удаления записей услуг клиента"""
+"""MCP-сервер для удаления записей услуг клиента."""
 
-from typing import Any, Dict
+from typing import Any
+
 from fastmcp import FastMCP
 
 from ..crm.crm_delete_client_record import delete_client_record  # type: ignore
+
 
 tool_record_delete = FastMCP(name="record_delete")
 
@@ -45,8 +47,8 @@ async def delete_records(
     user_companychat: str,
     office_id: str,
     record_id: str,
-) -> Dict[str, Any]:
-    """Функция удаления услуги."""
+) -> dict[str, Any]:
+    """Удалить запись клиента на услугу в CRM."""
     try:
         return await delete_client_record(
             user_companychat=int(user_companychat),
@@ -58,3 +60,4 @@ async def delete_records(
             "success": False,
             "error": "Записи не существует.",
         }
+

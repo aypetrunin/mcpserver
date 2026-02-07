@@ -1,3 +1,4 @@
+# httpservice_call_administrator.py
 """Вызов администратора через httpservice.ai2b.pro.
 
 Назначение (для новичка)
@@ -49,6 +50,7 @@ httpservice.ai2b.pro.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, TypedDict
 
@@ -57,7 +59,7 @@ import httpx
 from src.clients import get_http
 from src.http_retry import CRM_HTTP_RETRY
 from src.settings import get_settings
-
+from src.crm._crm_result import Payload, ok, err  # поправь путь, если модуль лежит иначе
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +96,23 @@ class HttpServiceAdministratorPayload(TypedDict):
     call_manager: bool
 
 
+def _code_from_status(status: int) -> str:
+    """Нормализуем HTTP статус в короткий код ошибки."""
+    if status in (401, 403):
+        return "unauthorized"
+    if status == 404:
+        return "not_found"
+    if status == 409:
+        return "conflict"
+    if status == 422:
+        return "validation_error"
+    if status == 429:
+        return "rate_limited"
+    if 500 <= status <= 599:
+        return "crm_unavailable"
+    return "crm_error"
+
+
 async def httpservice_call_administrator(
     user_id: int,
     user_companychat: int,
@@ -109,19 +128,14 @@ async def httpservice_call_administrator(
     dialog_state: str = "",
     dialog_state_new: str = "",
     call_manager: bool = True,
-) -> dict[str, Any]:
+) -> Payload[str]:
     """Отправляет запрос на вызов администратора через httpservice.
 
-    Возвращает словарь статуса вида:
-    - {"success": True, "data": "..."} при успехе
-    - {"success": False, "error": "...", "details": "..."} при ошибке
+    Возвращает ТОЛЬКО единый контракт:
+    - ok("Администратор вызван.") при успехе
+    - err(code=..., error="...") при ошибке
     """
     logger.info("httpservice_call_administrator")
-
-    tokens = tokens or {}
-    tools = tools or []
-    tools_args = tools_args or {}
-    tools_result = tools_result or {}
 
     payload: HttpServiceAdministratorPayload = {
         "user_id": user_id,
@@ -129,10 +143,10 @@ async def httpservice_call_administrator(
         "reply_to_history_id": reply_to_history_id,
         "access_token": access_token,
         "text": text,
-        "tokens": tokens,
-        "tools": tools,
-        "tools_args": tools_args,
-        "tools_result": tools_result,
+        "tokens": tokens or {},
+        "tools": tools or [],
+        "tools_args": tools_args or {},
+        "tools_result": tools_result or {},
         "prompt_system": prompt_system,
         "template_prompt_system": template_prompt_system,
         "dialog_state": dialog_state,
@@ -142,21 +156,31 @@ async def httpservice_call_administrator(
 
     try:
         await _call_administrator_payload(payload)
-        return {"success": True, "data": "Администратор вызван."}
+        return ok("Администратор вызван.")
+
+    except asyncio.CancelledError:
+        # важно не превращать CancelledError в err (иначе ломается shutdown)
+        raise
+
     except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        body_snippet = (exc.response.text or "")[:500]
+
+        # детали оставляем в логах (контракт err не содержит details)
         logger.warning(
             "httpservice http error status=%s body=%s",
-            exc.response.status_code,
-            exc.response.text[:500],
+            status,
+            body_snippet,
         )
-        return {
-            "success": False,
-            "error": f"status={exc.response.status_code}",
-            "details": exc.response.text[:500],
-        }
+        return err(code=_code_from_status(status), error=f"HTTP {status} from httpservice")
+
     except httpx.RequestError as exc:
         logger.warning("httpservice request error: %s", exc)
-        return {"success": False, "error": "network_error", "details": str(exc)}
+        return err(code="network_error", error="Network error while calling httpservice")
+
+    except Exception as exc:
+        logger.exception("unexpected error in httpservice_call_administrator: %s", exc)
+        return err(code="internal_error", error="Unexpected error")
 
 
 @CRM_HTTP_RETRY

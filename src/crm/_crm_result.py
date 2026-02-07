@@ -1,53 +1,47 @@
+# _crm_result.py
 # ============================================================================
-# ПРИМЕЧАНИЕ (важно прочитать)
-# ----------------------------------------------------------------------------
-# Этот модуль задаёт ЕДИНЫЙ формат ответов функций во всём проекте.
+# ЕДИНЫЙ формат ответов (v2)
 #
-# Любая функция, которая что-то возвращает наружу (CRM, tools, API),
-# должна возвращать:
+# УСПЕХ:
+#   {"success": True, "data": <T>}
 #
-#   1) УСПЕХ:
-#      {
-#        "success": True,
-#        "data": <любые данные>
-#      }
+# ОШИБКА:
+#   {
+#     "success": False,
+#     "code": "<короткий код ошибки>",
+#     "error": "<человеко-читаемое описание>",
+#     "details": { ... }   # optional
+#     "meta": { ... }      # optional (trace_id, retriable, status, etc.)
+#   }
 #
-#   2) ОШИБКУ:
-#      {
-#        "success": False,
-#        "code": "<короткий код ошибки>",
-#        "error": "<человеко-читаемое описание>"
-#      }
-#
-# ЗАЧЕМ ЭТО НУЖНО:
-# - чтобы ошибки выглядели одинаково во всех модулях
-# - чтобы `error` всегда был строкой (не dict, не tuple, не Exception)
-# - чтобы IDE и mypy могли проверять типы
-#
-# ВАЖНО:
-# ❌ НЕ возвращай словари руками
-# ❌ НЕ меняй тип error (он ВСЕГДА str)
-# ✅ Используй ТОЛЬКО функции ok() и err()
+# Правила:
+# - error ВСЕГДА str
+# - details/meta — только для ошибок (опционально)
+# - НЕ возвращайте словари руками: используйте ok()/err()
 # ============================================================================
+
 from __future__ import annotations
 
-from typing import Generic, Literal, TypedDict, TypeVar
-
+from typing import Any, Generic, Literal, NotRequired, TypedDict, TypeVar, overload
 
 T = TypeVar("T")
 
 
-class ErrorPayload(TypedDict):
-    """Описывает ошибку в стандартном формате."""
+class ErrorMeta(TypedDict, total=False):
+    retriable: bool
+    trace_id: str
+    status: int
 
+
+class ErrorPayload(TypedDict):
     success: Literal[False]
     code: str
     error: str
+    details: NotRequired[dict[str, Any]]
+    meta: NotRequired[ErrorMeta]
 
 
 class OkPayload(TypedDict, Generic[T]):
-    """Описывает успешный результат в стандартном формате."""
-
     success: Literal[True]
     data: T
 
@@ -56,10 +50,19 @@ Payload = ErrorPayload | OkPayload[T]
 
 
 def ok(data: T) -> OkPayload[T]:
-    """Возвращает успешный результат."""
     return {"success": True, "data": data}
 
 
-def err(*, code: str, error: str) -> ErrorPayload:
-    """Возвращает ошибку в стандартном формате."""
-    return {"success": False, "code": code, "error": error}
+def err(
+    *,
+    code: str,
+    error: str,
+    details: dict[str, Any] | None = None,
+    meta: ErrorMeta | None = None,
+) -> ErrorPayload:
+    out: ErrorPayload = {"success": False, "code": code, "error": error}
+    if details:
+        out["details"] = details
+    if meta:
+        out["meta"] = meta
+    return out

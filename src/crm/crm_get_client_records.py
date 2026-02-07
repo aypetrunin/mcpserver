@@ -1,6 +1,11 @@
+# crm_get_client_records.py
 """Поиск записей клиента в CRM.
 
 URL и настройки вычисляются лениво при выполнении запроса, а не при импорте.
+
+Правило:
+- success=True означает, что на стороне CRM не было ошибок
+- отсутствие записей НЕ является ошибкой (ok([]) — нормальный результат)
 """
 
 from __future__ import annotations
@@ -14,6 +19,7 @@ import httpx
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
+from ._crm_result import Payload, ok, err
 
 
 logger = logging.getLogger(__name__.split(".")[-1])
@@ -33,14 +39,6 @@ class PersonalRecord(TypedDict, total=False):
     product_name: str
 
 
-class PersonalRecordsResponse(TypedDict):
-    """Описывает формат ответа поиска записей."""
-
-    success: bool
-    data: list[PersonalRecord]
-    error: str | None
-
-
 class ClientRecordsPayload(TypedDict):
     """Описывает payload запроса записей."""
 
@@ -48,8 +46,24 @@ class ClientRecordsPayload(TypedDict):
     channel_id: int
 
 
-async def get_client_records(user_companychat: int, channel_id: int) -> PersonalRecordsResponse:
-    """Возвращает записи клиента из CRM."""
+def _code_from_status(status: int) -> str:
+    if status in (401, 403):
+        return "unauthorized"
+    if status == 404:
+        return "not_found"
+    if status == 409:
+        return "conflict"
+    if status == 422:
+        return "validation_error"
+    if status == 429:
+        return "rate_limited"
+    if 500 <= status <= 599:
+        return "crm_unavailable"
+    return "crm_error"
+
+
+async def get_client_records(user_companychat: int, channel_id: int) -> Payload[list[PersonalRecord]]:
+    """Возвращает записи клиента из CRM (единый контракт)."""
     payload: ClientRecordsPayload = {
         "user_companychat": user_companychat,
         "channel_id": channel_id,
@@ -57,27 +71,37 @@ async def get_client_records(user_companychat: int, channel_id: int) -> Personal
 
     try:
         resp_json = await _fetch_client_records_payload(payload)
-        return _response_format(resp_json, channel_id)
+
+        crm_ok, records = _extract_records(resp_json, channel_id)
+
+        # success=True => CRM без ошибок; записей может не быть -> ok([])
+        if crm_ok:
+            return ok(records)
+
+        # success=False => CRM сообщает об ошибке (не invalid_response)
+        return err(code="crm_error", error="CRM error while fetching client records")
 
     except httpx.HTTPStatusError as e:
+        status = e.response.status_code
         logger.warning(
             "http error status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
+            status,
+            (e.response.text or "")[:500],
         )
-        return {"success": False, "data": [], "error": f"status={e.response.status_code}"}
+        return err(code=_code_from_status(status), error=f"HTTP {status} from CRM")
 
     except httpx.RequestError as e:
         logger.warning("request error: %s", e)
-        return {"success": False, "data": [], "error": "network_error"}
+        return err(code="network_error", error="Network error while calling CRM")
 
     except ValueError as e:
+        # ValueError — это про парсинг/валидацию ответа CRM (битый JSON/тип)
         logger.error("bad response payload=%s: %s", payload, e)
-        return {"success": False, "data": [], "error": "invalid_response"}
+        return err(code="invalid_response", error="Invalid response from CRM")
 
     except Exception as e:
         logger.exception("unexpected error payload=%s: %s", payload, e)
-        return {"success": False, "data": [], "error": "unexpected_error"}
+        return err(code="internal_error", error="Unexpected error")
 
 
 @CRM_HTTP_RETRY
@@ -118,10 +142,15 @@ def _parse_dt(dt_str: str) -> datetime | None:
     return None
 
 
-def _response_format(response: dict[str, Any], channel_id: int) -> PersonalRecordsResponse:
-    """Приводит ответ CRM к формату проекта."""
+def _extract_records(response: dict[str, Any], channel_id: int) -> tuple[bool, list[PersonalRecord]]:
+    """Извлекает и нормализует записи из ответа CRM.
+
+    Возвращает:
+      - (True, records) если CRM success=True (ошибок не было), records может быть пустым
+      - (False, [])     если CRM success=False (CRM сообщила об ошибке)
+    """
     if response.get("success") is not True:
-        return {"success": False, "data": [], "error": "Ошибка поиска записей клиента"}
+        return False, []
 
     result: list[PersonalRecord] = []
 
@@ -155,4 +184,4 @@ def _response_format(response: dict[str, Any], channel_id: int) -> PersonalRecor
         )
 
     result.sort(key=lambda x: _parse_dt(x.get("record_date", "")) or datetime.max)
-    return {"success": True, "data": result, "error": None}
+    return True, result

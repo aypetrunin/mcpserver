@@ -40,6 +40,8 @@ dependencies = [
     "flake8-expression-complexity>=0.0.11",
     "flake8-cognitive-complexity>=0.1.0",
     "python-dateutil>=2.9.0.post0",
+    "typing-extensions>=4.15.0",
+    "tzdata>=2025.3",
 ]
 
 [dependency-groups]

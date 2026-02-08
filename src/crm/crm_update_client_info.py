@@ -1,15 +1,21 @@
-"""Регистрирует нового клиента в GO CRM."""
+"""Регистрирует нового клиента в GO CRM.
+
+Единый контракт ответов:
+- ok(data)  -> {"success": True, "data": ...}
+- err(...)  -> {"success": False, "code": "...", "error": "..."}
+"""
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, TypedDict
+from typing import Any
 
 import httpx
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
+from ._crm_result import Payload, err, ok
 
 
 logger = logging.getLogger(__name__.split(".")[-1])
@@ -17,40 +23,25 @@ logger = logging.getLogger(__name__.split(".")[-1])
 CREATE_CLIENT_PATH = "/appointments/go_crm/create_client"
 
 
-class ErrorResponse(TypedDict):
-    """Описывает ответ с ошибкой."""
-
-    success: Literal[False]
-    error: str
-
-
-class SuccessResponse(TypedDict):
-    """Описывает успешный ответ."""
-
-    success: Literal[True]
-    message: str
-
-
-ResponsePayload = ErrorResponse | SuccessResponse
-
-
-def _log_and_build_input_error(param_name: str, value: Any) -> ErrorResponse:
-    """Логирует и возвращает ошибку валидации входных данных."""
-    logger.warning("Не указан или неверный тип '%s': %r", param_name, value)
-    return ErrorResponse(
-        success=False,
-        error="Ошибка в типах входных данных. Проверь и перезапусти инструмент.",
-    )
-
-
-def _validate_str_param(value: Any) -> bool:
-    """Проверяет, что значение является непустой строкой."""
+def _validate_nonempty_str(value: Any) -> bool:
+    """Вернуть True, если value — непустая строка."""
     return isinstance(value, str) and bool(value.strip())
 
 
+def _input_error(param_name: str, value: Any) -> Payload[Any]:
+    """Fail-fast ошибка валидации входных данных (единый контракт)."""
+    logger.warning("go_update_client_info invalid param '%s': %r", param_name, value)
+    return err(
+        code="validation_error",
+        error=f"Поле '{param_name}' не задано или имеет неверный формат.",
+    )
+
+
 @CRM_HTTP_RETRY
-async def _create_client_payload(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
-    """Выполняет запрос создания клиента и возвращает JSON."""
+async def _create_client_payload(
+    payload: dict[str, Any], timeout_s: float
+) -> dict[str, Any]:
+    """Выполняет запрос создания клиента и возвращает JSON (dict)."""
     client = get_http()
     url = crm_url(CREATE_CLIENT_PATH)
 
@@ -77,8 +68,16 @@ async def go_update_client_info(
     child_date_of_birth: str,
     contact_reason: str,
     timeout: float = 0.0,
-) -> ResponsePayload:
-    """Создаёт клиента в GO CRM."""
+) -> Payload[str]:
+    """Создаёт клиента в GO CRM.
+
+    Возвращает:
+    - ok(<сообщение пользователю>) при успехе
+    - err(code,error) при ошибке
+    """
+    # ------------------------------------------------------------------
+    # 1) Fail-fast валидация входа
+    # ------------------------------------------------------------------
     for name, value in (
         ("user_id", user_id),
         ("channel_id", channel_id),
@@ -89,8 +88,8 @@ async def go_update_client_info(
         ("child_date_of_birth", child_date_of_birth),
         ("contact_reason", contact_reason),
     ):
-        if not _validate_str_param(value):
-            return _log_and_build_input_error(name, value)
+        if not _validate_nonempty_str(value):
+            return _input_error(name, value)
 
     payload: dict[str, str] = {
         "user_id": user_id.strip(),
@@ -105,8 +104,13 @@ async def go_update_client_info(
 
     effective_timeout = crm_timeout_s(timeout)
 
+    # ------------------------------------------------------------------
+    # 2) Вызов GO CRM
+    # ------------------------------------------------------------------
     try:
-        resp_json = await _create_client_payload(payload=payload, timeout_s=effective_timeout)
+        resp_json = await _create_client_payload(
+            payload=payload, timeout_s=effective_timeout
+        )
 
     except httpx.HTTPStatusError as e:
         logger.warning(
@@ -114,39 +118,43 @@ async def go_update_client_info(
             e.response.status_code,
             e.response.text[:500],
         )
-        return ErrorResponse(
-            success=False,
+        return err(
+            code="crm_http_error",
             error="Сервис GO CRM временно недоступен. Обратитесь к администратору.",
         )
 
     except httpx.RequestError as e:
         logger.warning("go_update_client_info request error payload=%s: %s", payload, e)
-        return ErrorResponse(
-            success=False,
+        return err(
+            code="crm_network_error",
             error="Сетевая ошибка при обращении к GO CRM. Обратитесь к администратору.",
         )
 
     except ValueError:
         logger.exception("go_update_client_info invalid json payload=%s", payload)
-        return ErrorResponse(
-            success=False,
+        return err(
+            code="invalid_response",
             error="GO CRM вернул некорректный ответ. Обратитесь к администратору.",
         )
 
     except Exception as e:
-        logger.exception("go_update_client_info unexpected error payload=%s: %s", payload, e)
-        return ErrorResponse(
-            success=False,
+        logger.exception(
+            "go_update_client_info unexpected error payload=%s: %s", payload, e
+        )
+        return err(
+            code="unexpected_error",
             error="Неизвестная ошибка при обращении к GO CRM. Обратитесь к администратору.",
         )
 
+    # ------------------------------------------------------------------
+    # 3) Нормализация бизнес-результата GO CRM
+    # ------------------------------------------------------------------
+    # GO CRM может вернуть {"success": true/false, ...}
     if resp_json.get("success") is not True:
-        return ErrorResponse(
-            success=False,
+        return err(
+            code="crm_rejected",
             error="Ошибка создания нового клиента в GO CRM. Обратитесь к администратору.",
         )
 
-    return SuccessResponse(
-        success=True,
-        message="Ваши данные сохранены. С вами скоро свяжется администратор.",
-    )
+    # Сохраняем текущее пользовательское сообщение (как раньше было message)
+    return ok("Ваши данные сохранены. С вами скоро свяжется администратор.")

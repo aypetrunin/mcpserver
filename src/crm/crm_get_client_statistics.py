@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 import logging
 import re
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal
 
 from dateutil.relativedelta import relativedelta
 import httpx
+from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
@@ -38,7 +39,9 @@ ResponsePayload = ErrorResponse | SuccessResponse
 
 
 @CRM_HTTP_RETRY
-async def _fetch_client_info(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
+async def _fetch_client_info(
+    payload: dict[str, Any], timeout_s: float
+) -> dict[str, Any]:
     """Выполняет запрос к GO CRM и возвращает JSON."""
     client = get_http()
     url = crm_url(CLIENT_INFO_PATH)
@@ -74,7 +77,9 @@ async def go_get_client_statisics(
     fallback_err = "Сервис GO CRM временно недоступен. Обратитесь к администратору."
 
     try:
-        resp_json = await _fetch_client_info(payload=payload, timeout_s=effective_timeout)
+        resp_json = await _fetch_client_info(
+            payload=payload, timeout_s=effective_timeout
+        )
 
     except httpx.HTTPStatusError as e:
         logger.warning(
@@ -145,7 +150,11 @@ class AbonementCalculator:
     def _find_start_record(self) -> dict[str, Any] | None:
         """Находит стартовую запись абонемента."""
         return next(
-            (r for r in self.records if r.get("is_start") or r.get("comment") == "СТАРТ"),
+            (
+                r
+                for r in self.records
+                if r.get("is_start") or r.get("comment") == "СТАРТ"
+            ),
             None,
         )
 
@@ -176,7 +185,9 @@ class AbonementCalculator:
         if not start_record:
             return summary
 
-        lessons_total, abonement_number = self._parse_abonement_text(start_record.get("abonement", ""))
+        lessons_total, abonement_number = self._parse_abonement_text(
+            start_record.get("abonement", "")
+        )
         summary["lessons_total"] = lessons_total
         summary["abonement_number"] = abonement_number
 
@@ -216,7 +227,9 @@ class AbonementCalculator:
 
         if lessons_total is not None:
             summary["remaining_lessons"] = max(lessons_total - used, 0)
-            summary["transfers_left"] = max(summary["remaining_lessons"] - summary["transfers_used"], 0)
+            summary["transfers_left"] = max(
+                summary["remaining_lessons"] - summary["transfers_used"], 0
+            )
 
         transfers_used = summary["transfers_used"]
         if transfers_used == 0:

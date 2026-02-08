@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TypedDict, cast
+from typing import Any, cast
 
 import httpx
+from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
@@ -65,7 +66,9 @@ async def reschedule_client_record(
     logger.info("Подготовка переноса записи payload=%s", payload)
 
     try:
-        resp_json = await _reschedule_payload(url=url, payload=payload, timeout_s=effective_timeout)
+        resp_json = await _reschedule_payload(
+            url=url, payload=payload, timeout_s=effective_timeout
+        )
         logger.info("Перенос записи успешно выполнен payload=%s", payload)
         return cast(RescheduleClientRecordResponse, resp_json)
 
@@ -74,7 +77,11 @@ async def reschedule_client_record(
         body = e.response.text
 
         logger.error("CRM HTTP %d payload=%s body=%s", status, payload, body[:800])
-        return {"success": False, "error": f"HTTP ошибка: {status}", "details": body[:800]}
+        return {
+            "success": False,
+            "error": f"HTTP ошибка: {status}",
+            "details": body[:800],
+        }
 
     except httpx.RequestError as e:
         logger.error("Сетевая ошибка при переносе payload=%s: %s", payload, e)
@@ -90,7 +97,9 @@ async def reschedule_client_record(
 
 
 @CRM_HTTP_RETRY
-async def _reschedule_payload(*, url: str, payload: RescheduleClientRecordPayload, timeout_s: float) -> dict[str, Any]:
+async def _reschedule_payload(
+    *, url: str, payload: RescheduleClientRecordPayload, timeout_s: float
+) -> dict[str, Any]:
     """Выполняет HTTP-запрос переноса и возвращает JSON."""
     client = get_http()
 

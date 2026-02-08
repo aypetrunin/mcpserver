@@ -148,7 +148,9 @@ async def reset_collection(
         await client.delete_collection(collection_name)
         logger.info('Коллекция "%s" удалена.', collection_name)
     except Exception:
-        logger.warning('Коллекция "%s" не найдена или ошибка удаления.', collection_name)
+        logger.warning(
+            'Коллекция "%s" не найдена или ошибка удаления.', collection_name
+        )
 
     await client.create_collection(
         collection_name,
@@ -188,7 +190,6 @@ async def reset_collection(
                 ),
             )
             logger.info('Индекс "%s" создан.', field)
-
 
 
 # """Модуль общих функций для retriever_faq_services, retriever_product."""

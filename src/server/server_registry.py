@@ -76,4 +76,3 @@ def _build_for_spec(spec: ServerSpec) -> BuildMcpFn:
 
 for spec in SERVERS:
     spec.build = _build_for_spec(spec)
-

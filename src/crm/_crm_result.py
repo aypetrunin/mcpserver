@@ -22,7 +22,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, Literal, NotRequired, TypedDict, TypeVar, overload
+from typing import Any, Generic, Literal, NotRequired, TypeVar
+
+from typing_extensions import TypedDict
+
 
 T = TypeVar("T")
 

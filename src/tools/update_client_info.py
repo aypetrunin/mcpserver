@@ -1,11 +1,23 @@
-"""MCP-сервер для записи и обновления анкетных данных клиента."""
+"""MCP-сервер для записи и обновления анкетных данных клиента.
 
-from typing import Any
+Action-tool: сохраняет/обновляет анкету в GO CRM.
+Единый контракт ответов: Payload (ok/err).
+"""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime
+import logging
 
 from fastmcp import FastMCP
 
+from src.crm._crm_result import Payload, err
+
 from ..crm.crm_update_client_info import go_update_client_info  # type: ignore
 
+
+logger = logging.getLogger(__name__)
 
 tool_update_client_info = FastMCP(name="update_client_info")
 
@@ -27,7 +39,7 @@ tool_update_client_info = FastMCP(name="update_client_info")
         "- child_date_of_birth (`str`, required): Дата рождения ребёнка (DD.MM.YYYY).\n"
         "- contact_reason (`str`, required): Причина обращения.\n\n"
         "**Returns:**\n"
-        "- `dict`: Результат сохранения анкетных данных.\n"
+        "- Payload[str]\n"
     ),
 )
 async def update_client_info_go(
@@ -39,47 +51,67 @@ async def update_client_info_go(
     child_name: str,
     child_date_of_birth: str,
     contact_reason: str,
-) -> dict[str, Any]:
-    """Сохранить анкетные данные клиента."""
-    if not parent_name:
-        return {
-            "success": False,
-            "message": "Имя родителя не задано. Запросите имя родителя.",
-        }
+) -> Payload[str]:
+    """Сохранить анкетные данные клиента (fail-fast валидируем, дальше прокидываем в CRM-слой)."""
+    # ------------------------------------------------------------------
+    # 1) Fail-fast валидация обязательных полей (чтобы не дёргать CRM зря)
+    # ------------------------------------------------------------------
+    required_fields: dict[str, str] = {
+        "user_id": user_id,
+        "channel_id": channel_id,
+        "parent_name": parent_name,
+        "phone": phone,
+        "email": email,
+        "child_name": child_name,
+        "child_date_of_birth": child_date_of_birth,
+        "contact_reason": contact_reason,
+    }
 
-    if not phone:
-        return {
-            "success": False,
-            "message": "Номер телефона не задан. Запросите номер телефона.",
-        }
+    for field, value in required_fields.items():
+        if not isinstance(value, str) or not value.strip():
+            return err(
+                code="validation_error",
+                error=f"Поле '{field}' не задано. Запросите у клиента '{field}'.",
+            )
 
-    if not email:
-        return {
-            "success": False,
-            "message": "Электронная почта не задана. Запросите электронную почту.",
-        }
+    # Формат даты DD.MM.YYYY (как в проекте)
+    try:
+        datetime.strptime(child_date_of_birth.strip(), "%d.%m.%Y")
+    except ValueError:
+        return err(
+            code="validation_error",
+            error="Некорректный формат child_date_of_birth. Ожидается DD.MM.YYYY.",
+        )
 
-    if not child_name:
-        return {
-            "success": False,
-            "message": "Имя ребёнка не задано. Запросите имя ребёнка.",
-        }
+    # Лёгкая sanity-check email (без жёстких регэкспов)
+    email_s = email.strip()
+    if "@" not in email_s or "." not in email_s:
+        return err(
+            code="validation_error",
+            error="Некорректный email. Запросите электронную почту ещё раз.",
+        )
 
-    if not child_date_of_birth:
-        return {
-            "success": False,
-            "message": "Дата рождения ребёнка не задана. Запросите дату рождения ребёнка.",
-        }
-
-    response = await go_update_client_info(
-        user_id=user_id,
-        channel_id=channel_id,
-        parent_name=parent_name,
-        phone=phone,
-        email=email,
-        child_name=child_name,
-        child_date_of_birth=child_date_of_birth,
-        contact_reason=contact_reason,
-    )
-
-    return response
+    # ------------------------------------------------------------------
+    # 2) Вызов CRM-слоя: он уже возвращает Payload[str], просто прокидываем
+    # ------------------------------------------------------------------
+    try:
+        return await go_update_client_info(
+            user_id=user_id,
+            channel_id=channel_id,
+            parent_name=parent_name,
+            phone=phone,
+            email=email,
+            child_name=child_name,
+            child_date_of_birth=child_date_of_birth,
+            contact_reason=contact_reason,
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        # На всякий случай: если CRM-слой неожиданно упал исключением,
+        # MCP-tool всё равно возвращает корректный Payload.
+        logger.exception("[update_client_info] unexpected error: %s", exc)
+        return err(
+            code="unexpected_error",
+            error="Не удалось сохранить анкету. Попробуйте позже.",
+        )

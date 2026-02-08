@@ -52,14 +52,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, TypedDict
+from typing import Any
 
 import httpx
+from typing_extensions import TypedDict
 
 from src.clients import get_http
+from src.crm._crm_result import (
+    Payload,
+    err,
+    ok,
+)  # поправь путь, если модуль лежит иначе
 from src.http_retry import CRM_HTTP_RETRY
 from src.settings import get_settings
-from src.crm._crm_result import Payload, ok, err  # поправь путь, если модуль лежит иначе
+
 
 logger = logging.getLogger(__name__)
 
@@ -172,11 +178,15 @@ async def httpservice_call_administrator(
             status,
             body_snippet,
         )
-        return err(code=_code_from_status(status), error=f"HTTP {status} from httpservice")
+        return err(
+            code=_code_from_status(status), error=f"HTTP {status} from httpservice"
+        )
 
     except httpx.RequestError as exc:
         logger.warning("httpservice request error: %s", exc)
-        return err(code="network_error", error="Network error while calling httpservice")
+        return err(
+            code="network_error", error="Network error while calling httpservice"
+        )
 
     except Exception as exc:
         logger.exception("unexpected error in httpservice_call_administrator: %s", exc)

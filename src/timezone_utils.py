@@ -27,7 +27,9 @@ def now_local(server_name: str) -> datetime:
     return datetime.now(get_tz(server_name))
 
 
-def parse_slot(server_name: str, slot: str, fmt_no_tz: str = "%Y-%m-%d %H:%M") -> datetime:
+def parse_slot(
+    server_name: str, slot: str, fmt_no_tz: str = "%Y-%m-%d %H:%M"
+) -> datetime:
     """Парсит слот CRM в timezone-aware datetime."""
     s = slot.strip()
 

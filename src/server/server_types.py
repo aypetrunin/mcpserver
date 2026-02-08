@@ -34,4 +34,3 @@ class ServerSpec:
     build_tools: BuildToolsFn
     tools_namespace: str = "zena"
     build: BuildMcpFn | None = field(default=None, repr=False)
-

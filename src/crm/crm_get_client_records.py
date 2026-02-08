@@ -12,14 +12,15 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import Any, TypedDict
+from typing import Any
 
 import httpx
+from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
-from ._crm_result import Payload, ok, err
+from ._crm_result import Payload, err, ok
 
 
 logger = logging.getLogger(__name__.split(".")[-1])
@@ -62,7 +63,9 @@ def _code_from_status(status: int) -> str:
     return "crm_error"
 
 
-async def get_client_records(user_companychat: int, channel_id: int) -> Payload[list[PersonalRecord]]:
+async def get_client_records(
+    user_companychat: int, channel_id: int
+) -> Payload[list[PersonalRecord]]:
     """Возвращает записи клиента из CRM (единый контракт)."""
     payload: ClientRecordsPayload = {
         "user_companychat": user_companychat,
@@ -105,7 +108,9 @@ async def get_client_records(user_companychat: int, channel_id: int) -> Payload[
 
 
 @CRM_HTTP_RETRY
-async def _fetch_client_records_payload(payload: ClientRecordsPayload) -> dict[str, Any]:
+async def _fetch_client_records_payload(
+    payload: ClientRecordsPayload,
+) -> dict[str, Any]:
     """Выполняет HTTP-запрос поиска записей и возвращает JSON."""
     client = get_http()
     url = crm_url(CLIENT_RECORDS_PATH)
@@ -142,7 +147,9 @@ def _parse_dt(dt_str: str) -> datetime | None:
     return None
 
 
-def _extract_records(response: dict[str, Any], channel_id: int) -> tuple[bool, list[PersonalRecord]]:
+def _extract_records(
+    response: dict[str, Any], channel_id: int
+) -> tuple[bool, list[PersonalRecord]]:
     """Извлекает и нормализует записи из ответа CRM.
 
     Возвращает:

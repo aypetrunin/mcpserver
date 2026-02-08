@@ -76,7 +76,9 @@ async def create_product_service_view() -> None:
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            await conn.execute("DROP VIEW IF EXISTS product_service_view;", timeout=PG_DDL_TIMEOUT_S)
+            await conn.execute(
+                "DROP VIEW IF EXISTS product_service_view;", timeout=PG_DDL_TIMEOUT_S
+            )
             await conn.execute(
                 """
                 CREATE VIEW product_service_view AS

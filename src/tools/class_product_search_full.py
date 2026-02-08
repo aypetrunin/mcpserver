@@ -16,9 +16,11 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
-from src.crm._crm_result import Payload, ok, err
+from src.crm._crm_result import Payload, err, ok
+
 from ..postgres.postgres_util import select_key  # type: ignore
 from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: ignore
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,14 @@ class MCPSearchProductFull:
     _EXAMPLES_LIMIT_CHARS = 18000
 
     def __init__(self, channel_ids: list[str], key: dict[str, Any]) -> None:
+        """
+        Инициализация MCP-сервера полнотекстового поиска услуг.
+
+        :param channel_ids: Список идентификаторов каналов,
+            по которым выполняется поиск услуг.
+        :param key: Словарь справочников (indications, contraindications,
+            body_parts), полученный из конфигурационного хранилища.
+        """
         self.channel_ids: list[str] = channel_ids
         self.key: dict[str, Any] = key
 
@@ -41,8 +51,23 @@ class MCPSearchProductFull:
 
     @classmethod
     async def create(cls, channel_ids: list[str]) -> MCPSearchProductFull:
+        """
+        Фабричный метод создания MCP-сервера с загрузкой ключей из PostgreSQL.
+
+        Выполняет:
+        - валидацию channel_ids
+        - получение сервисных ключей для первого channel_id
+        - создание экземпляра MCPSearchProductFull
+
+        :param channel_ids: Список идентификаторов каналов.
+        :raises RuntimeError: Если channel_ids пуст,
+            имеет некорректный формат или ключи не найдены.
+        :return: Инициализированный экземпляр MCPSearchProductFull.
+        """
         if not channel_ids:
-            raise RuntimeError("channel_ids пустой. Проверь переменную окружения CHANNEL_IDS_*")
+            raise RuntimeError(
+                "channel_ids пустой. Проверь переменную окружения CHANNEL_IDS_*"
+            )
 
         try:
             channel_id = int(channel_ids[0])
@@ -79,7 +104,8 @@ class MCPSearchProductFull:
 
     def _examples_block(self) -> str:
         """
-        Примеры держим:
+        Примеры держим.
+
         - короткими (10 -> 4–5, без воды)
         - в конце description
         - с <session_id> как плейсхолдером
@@ -267,8 +293,12 @@ class MCPSearchProductFull:
         # 3) примеры — в самом конце и ограничены по длине
         return "\n\n".join([header, params, self._examples_block()]).strip()
 
-    def _add_unique_by_product_name(self, target_list: list[dict[str, Any]], source_list: list[dict[str, Any]]) -> None:
-        existing_names = {item.get("product_name") for item in target_list if isinstance(item, dict)}
+    def _add_unique_by_product_name(
+        self, target_list: list[dict[str, Any]], source_list: list[dict[str, Any]]
+    ) -> None:
+        existing_names = {
+            item.get("product_name") for item in target_list if isinstance(item, dict)
+        }
         for item in source_list:
             if not isinstance(item, dict):
                 continue
@@ -295,7 +325,9 @@ class MCPSearchProductFull:
 
             # Мягкая защита от полностью пустого запроса:
             # если нет ни query, ни параметров — просто нечего искать.
-            if (not query or not query.strip()) and not (indications or body_parts or contraindications):
+            if (not query or not query.strip()) and not (
+                indications or body_parts or contraindications
+            ):
                 return ok([])
 
             logger.info(
@@ -324,14 +356,24 @@ class MCPSearchProductFull:
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
-                    logger.warning("[product_search] channel_id=%s failed: %s", channel_id, exc)
+                    logger.warning(
+                        "[product_search] channel_id=%s failed: %s", channel_id, exc
+                    )
                     continue
 
-                logger.info("[product_search] channel_id=%s response_len=%s", channel_id, len(response))
+                logger.info(
+                    "[product_search] channel_id=%s response_len=%s",
+                    channel_id,
+                    len(response),
+                )
                 if isinstance(response, list):
                     self._add_unique_by_product_name(list_response, response)
 
-            logger.info("[product_search] total_len=%s channel_ids=%s", len(list_response), self.channel_ids)
+            logger.info(
+                "[product_search] total_len=%s channel_ids=%s",
+                len(list_response),
+                self.channel_ids,
+            )
 
             # Итог:
             # - если хотя бы один канал отработал (даже вернул []) — ok(...)

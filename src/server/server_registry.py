@@ -21,7 +21,7 @@ from .tools_annitta import build_tools_annitta
 from .tools_marina import build_tools_marina
 from .tools_sofia import build_tools_sofia
 from .tools_valentina import build_tools_valentina
-
+from .tools_egoistka import build_tools_egoistka
 
 SERVERS: list[ServerSpec] = [
     ServerSpec(
@@ -65,6 +65,12 @@ SERVERS: list[ServerSpec] = [
         env_port="MCP_PORT_MARINA",
         channel_ids_env="CHANNEL_IDS_MARINA",
         build_tools=build_tools_marina,
+    ),
+    ServerSpec(
+        name="egoistka",
+        env_port="MCP_PORT_EGOISTKA",
+        channel_ids_env="CHANNEL_IDS_EGOISTKA",
+        build_tools=build_tools_egoistka,
     ),
 ]
 

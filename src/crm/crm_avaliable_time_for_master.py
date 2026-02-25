@@ -51,6 +51,10 @@ DT_FMT_SLOT = "%Y-%m-%d %H:%M"
 
 PRODUCT_PATH = "/appointments/yclients/product"
 
+# Мастера, которых нужно исключить из выдачи
+EXCLUDED_MASTERS: set[str] = {
+    "Администратор РЕЗЕРВ",
+}
 
 @dataclass(frozen=True)
 class MasterSlots:
@@ -183,6 +187,10 @@ async def avaliable_time_for_master_async(
     out: list[MasterSlots] = []
     for item in staff_list:
         if not isinstance(item, dict):
+            continue
+
+        master_name = str(item.get("name", "")).strip()
+        if master_name in EXCLUDED_MASTERS:
             continue
 
         dates = item.get("dates")

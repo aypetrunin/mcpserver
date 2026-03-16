@@ -16,8 +16,8 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
-from src.crm._crm_result import Payload, err, ok
-
+from ..settings import get_settings
+from ..crm._crm_result import Payload, err, ok
 from ..postgres.postgres_util import select_key  # type: ignore
 from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: ignore
 
@@ -42,6 +42,8 @@ class MCPSearchProductFull:
         :param key: Словарь справочников (indications, contraindications,
             body_parts), полученный из конфигурационного хранилища.
         """
+        s = get_settings()
+        self.score_threshold=s.QDRANT_SCORE_THRESHOLD
         self.channel_ids: list[str] = channel_ids
         self.key: dict[str, Any] = key
 
@@ -348,6 +350,7 @@ class MCPSearchProductFull:
                     response = await retriever_product_hybrid_async(
                         channel_id=channel_id,
                         query=query,
+                        score_threshold=self.score_threshold,
                         indications=indications,
                         contraindications=contraindications,
                         body_parts=body_parts,

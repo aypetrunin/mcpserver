@@ -244,12 +244,14 @@ async def retriever_product_async(
 
 async def retriever_product_hybrid_async(
     channel_id: int,
+    score_threshold: float = 0.0,
     query: str | None = None,
     indications: list[str] | None = None,
     contraindications: list[str] | None = None,
     body_parts: list[str] | None = None,
     product_type: list[str] | None = None,
     limit: int = HYBRID_LIMIT,
+
 ) -> list[dict[str, Any]]:
     """Гибридный поиск (Ada + BM25) с Reciprocal Rank Fusion (RRF)."""
     query_filter = make_filter(
@@ -263,12 +265,13 @@ async def retriever_product_hybrid_async(
     col = products_collection()
     limit = _sanitize_limit(limit, HYBRID_LIMIT)
 
-    logger.debug(
-        "retriever_product_hybrid_async channel_id=%s query=%s limit=%s filter=%s",
+    logger.info(
+        "retriever_product_hybrid_async channel_id=%s query=%s limit=%s filter=%s score_threshold=%s",
         channel_id,
         (query[:80] + "...") if query and len(query) > 80 else query,
         limit,
         query_filter,
+        score_threshold,
     )
 
     async def _logic() -> list[dict[str, Any]]:
@@ -285,7 +288,6 @@ async def retriever_product_hybrid_async(
                         limit=limit,
                     ),
                 ]
-
                 res = await get_qdrant_client().query_points(
                     collection_name=col,
                     prefetch=prefetch,
@@ -293,6 +295,7 @@ async def retriever_product_hybrid_async(
                     with_payload=True,
                     query_filter=query_filter,
                     limit=limit,
+                    score_threshold=score_threshold,
                 )
                 return points_to_list(res)
 

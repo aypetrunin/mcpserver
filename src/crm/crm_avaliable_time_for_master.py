@@ -51,6 +51,10 @@ DT_FMT_SLOT = "%Y-%m-%d %H:%M"
 
 PRODUCT_PATH = "/appointments/yclients/product"
 
+# Мастера, которых нужно исключить из выдачи
+EXCLUDED_MASTERS: set[str] = {
+    "Администратор РЕЗЕРВ",
+}
 
 @dataclass(frozen=True)
 class MasterSlots:
@@ -70,7 +74,9 @@ def _parse_date(value: str) -> date_type | None:
         return None
 
 
-def _filter_future_slots(server_name: str, slots: list[str], now: datetime) -> list[str]:
+def _filter_future_slots(
+    server_name: str, slots: list[str], now: datetime
+) -> list[str]:
     """Оставляет только слоты строго позже now."""
     out: list[str] = []
     for s in slots:
@@ -121,7 +127,12 @@ async def avaliable_time_for_master_async(
     d = _parse_date(date)
     if d is None:
         logger.warning("Неверный формат date=%r (ожидается YYYY-MM-DD)", date)
-        return [{"success": False, "error": f"Неверный формат даты: {date}. Ожидается 'YYYY-MM-DD'"}]
+        return [
+            {
+                "success": False,
+                "error": f"Неверный формат даты: {date}. Ожидается 'YYYY-MM-DD'",
+            }
+        ]
 
     now = now_local(server_name)
     today = now.date()
@@ -178,6 +189,10 @@ async def avaliable_time_for_master_async(
         if not isinstance(item, dict):
             continue
 
+        master_name = str(item.get("name", "")).strip()
+        if master_name in EXCLUDED_MASTERS:
+            continue
+
         dates = item.get("dates")
         if not isinstance(dates, list):
             continue
@@ -187,7 +202,9 @@ async def avaliable_time_for_master_async(
         parsed_pairs: list[tuple[datetime, str]] = []
         for s in dates_str:
             try:
-                parsed_pairs.append((parse_slot(server_name, s, fmt_no_tz=DT_FMT_SLOT), s))
+                parsed_pairs.append(
+                    (parse_slot(server_name, s, fmt_no_tz=DT_FMT_SLOT), s)
+                )
             except ValueError:
                 continue
         parsed_pairs.sort(key=lambda x: x[0])

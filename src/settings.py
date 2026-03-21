@@ -89,6 +89,7 @@ class Settings:
     QDRANT_COLLECTION_SERVICES: str
     QDRANT_COLLECTION_PRODUCTS: str
     QDRANT_COLLECTION_TEMP: str
+    QDRANT_SCORE_THRESHOLD: float
 
     # OpenAI
     OPENAI_API_KEY: str
@@ -134,6 +135,7 @@ def get_settings() -> Settings:
     qdrant_services = _str("QDRANT_COLLECTION_SERVICES", required=True)
     qdrant_products = _str("QDRANT_COLLECTION_PRODUCTS", required=True)
     qdrant_temp = _str("QDRANT_COLLECTION_TEMP", required=True)
+    qdrant_score_threshold = _float("QDRANT_SCORE_THRESHOLD", 0.7)
 
     # OpenAI
     openai_key = _str("OPENAI_API_KEY", "")
@@ -167,6 +169,7 @@ def get_settings() -> Settings:
         QDRANT_COLLECTION_SERVICES=qdrant_services,
         QDRANT_COLLECTION_PRODUCTS=qdrant_products,
         QDRANT_COLLECTION_TEMP=qdrant_temp,
+        QDRANT_SCORE_THRESHOLD=qdrant_score_threshold,
         OPENAI_API_KEY=openai_key,
         OPENAI_TIMEOUT_S=openai_timeout,
         OPENAI_PROXY_URL=openai_proxy,

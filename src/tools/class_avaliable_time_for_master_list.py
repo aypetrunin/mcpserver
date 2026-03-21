@@ -11,11 +11,6 @@
 
     MCP_TZ_SOFIA=Asia/Krasnoyarsk
 
-Использование:
-
-    m = await MCPAvailableTimeForMasterList.create(server_name="sofia")
-    tool = m.get_tool()
-
 ПРИМЕЧАНИЕ ПО ТАЙМ-ЗОНАМ
 -----------------------
 CRM-слой выполняет:
@@ -28,12 +23,15 @@ CRM-слой выполняет:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import textwrap
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
+
+from src.crm._crm_result import Payload, err, ok
 
 from ..crm.crm_avaliable_time_for_master_list import (
     avaliable_time_for_master_list_async,  # type: ignore
@@ -44,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 class MCPAvailableTimeForMasterList:
-    """MCPAvailableTimeForMasterList — MCP-обёртка над avaliable_time_for_master_list_async.
+    """MCP-обёртка над avaliable_time_for_master_list_async.
 
     server_name:
     - логическое имя сервера/агента (например: "sofia", "alisa")
@@ -52,28 +50,36 @@ class MCPAvailableTimeForMasterList:
     """
 
     def __init__(self, server_name: str) -> None:
-        """Инициализировать MCP-инструмент поиска свободных слотов по мастерам.
+        """
+        Инициализировать MCP-инструмент поиска свободных слотов по мастерам.
 
-        Сохраняет имя MCP-сервера, формирует описание инструмента для LLM
-        и регистрирует MCP tool для получения доступного времени.
+        :param server_name: Логическое имя MCP-сервера/агента,
+            используемое для выбора тайм-зоны в CRM-слое
+            (env MCP_TZ_<SERVER>).
         """
         self.server_name: str = server_name
-
         self.description: str = self._set_description()
 
         self.tool_avaliable_time_for_master_list: FastMCP = FastMCP(
             name="avaliable_time_for_master_list"
         )
-
         self._register_tool()
 
     @classmethod
     async def create(cls, server_name: str) -> MCPAvailableTimeForMasterList:
-        """Создать экземпляр MCPAvailableTimeForMasterList.
-
-        Проверяет корректность имени сервера/агента и инициализирует
-        MCP-инструмент для поиска доступного времени.
         """
+        Фабричный метод создания MCP-инструмента.
+
+        Используется при инициализации MCP-сервера и выполняет
+        fail-fast валидацию конфигурации.
+
+        :param server_name: Логическое имя сервера/агента
+            (например: "sofia", "alisa").
+        :raises RuntimeError: Если server_name пустой или некорректный.
+        :return: Инициализированный экземпляр MCPAvailableTimeForMasterList.
+        """
+        # Что делаем: fail-fast в create() — это конфиг, а не runtime input пользователя.
+        # Если server_name пустой, лучше упасть при старте сервера.
         if not server_name or not isinstance(server_name, str):
             raise RuntimeError(
                 "server_name пустой. Ожидается имя сервера/агента (например: 'sofia')."
@@ -81,6 +87,8 @@ class MCPAvailableTimeForMasterList:
         return cls(server_name=server_name)
 
     def _set_description(self) -> str:
+        # Что делаем: обновляем Returns под единый контракт ok/err.
+        # Важно: data на успехе — tuple[list[dict], list[dict]] (как и раньше).
         return textwrap.dedent(
             """
             MCP tool: avaliable_time_for_master_list — поиск свободных слотов по мастерам (список услуг)
@@ -107,10 +115,11 @@ class MCPAvailableTimeForMasterList:
             - `product_name` (`list[str]`, required):
               Список названий услуг.
 
-            **Returns:**
-            tuple[list[dict], list[dict]]:
-              - Для одиночной услуги: (список мастеров со слотами, [])
-              - Для комплекса: (список последовательностей, short_list последовательностей)
+            **Returns (единый контракт):**
+            - ok(tuple[list[dict], list[dict]]):
+                - Для одиночной услуги: (список мастеров со слотами, [])
+                - Для комплекса: (список последовательностей, short_list последовательностей)
+            - err(code, error) при ошибке
             """
         ).strip()
 
@@ -123,13 +132,50 @@ class MCPAvailableTimeForMasterList:
             date: str,
             product_id: list[str],
             product_name: list[str],
-        ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-            """Функция поиска свободных слотов по мастерам для списка услуг."""
-            list_products_id = ", ".join(product_id)
-            list_products_name = ", ".join(product_name)
+        ) -> Payload[tuple[list[dict[str, Any]], list[dict[str, Any]]]]:
+            """Поиск свободных слотов по мастерам для списка услуг (единый контракт)."""
+            # Что делаем: лёгкая валидация user input (tool args) -> err(validation_error).
+            if not date or not isinstance(date, str) or not date.strip():
+                return err(
+                    code="validation_error", error="date обязателен (YYYY-MM-DD)"
+                )
+
+            if not isinstance(product_id, list) or not product_id:
+                return err(
+                    code="validation_error",
+                    error="product_id должен быть непустым списком",
+                )
+
+            if not isinstance(product_name, list) or not product_name:
+                return err(
+                    code="validation_error",
+                    error="product_name должен быть непустым списком",
+                )
+
+            # Что делаем: приводим к строкам и отфильтровываем пустые значения,
+            # чтобы не отправлять мусор в CRM слой.
+            clean_product_id = [str(x).strip() for x in product_id if str(x).strip()]
+            clean_product_name = [
+                str(x).strip() for x in product_name if str(x).strip()
+            ]
+
+            if not clean_product_id:
+                return err(
+                    code="validation_error",
+                    error="product_id не содержит валидных значений",
+                )
+
+            if not clean_product_name:
+                return err(
+                    code="validation_error",
+                    error="product_name не содержит валидных значений",
+                )
+
+            list_products_id = ", ".join(clean_product_id)
+            list_products_name = ", ".join(clean_product_name)
 
             payload = {
-                "date": date,
+                "date": date.strip(),
                 "service_id": list_products_id,
                 "service_name": list_products_name,
                 "server_name": self.server_name,
@@ -138,23 +184,43 @@ class MCPAvailableTimeForMasterList:
             logger.info(
                 "[avaliable_time_for_master_list] вход | server=%s date=%s service_id=%s service_name=%s",
                 self.server_name,
-                date,
-                list_products_id,
-                list_products_name,
+                payload["date"],
+                payload["service_id"],
+                payload["service_name"],
             )
 
-            sequences, avaliable_sequences = await avaliable_time_for_master_list_async(
-                **payload
-            )
+            try:
+                (
+                    sequences,
+                    avaliable_sequences,
+                ) = await avaliable_time_for_master_list_async(**payload)
+            except asyncio.CancelledError:
+                # Что делаем: CancelledError не превращаем в err — важно для корректного shutdown supervisor'а.
+                raise
+            except Exception as exc:
+                # Что делаем: любые неожиданные ошибки CRM-слоя -> единый err.
+                # Детали оставляем в логах (по контракту err только code+error).
+                logger.exception(
+                    "[avaliable_time_for_master_list] failed | server=%s payload=%s error=%s",
+                    self.server_name,
+                    payload,
+                    exc,
+                )
+                return err(
+                    code="internal_error", error="Ошибка получения доступного времени"
+                )
 
             logger.info(
-                "[avaliable_time_for_master_list] выход | server=%s sequences=%s avaliable_sequences=%s",
+                "[avaliable_time_for_master_list] выход | server=%s sequences_len=%s avaliable_sequences_len=%s",
                 self.server_name,
-                sequences,
-                avaliable_sequences,
+                len(sequences) if isinstance(sequences, list) else -1,
+                len(avaliable_sequences)
+                if isinstance(avaliable_sequences, list)
+                else -1,
             )
 
-            return sequences, avaliable_sequences
+            # Что делаем: возвращаем строго ok(data) с тем же типом, что был раньше (tuple[list, list]).
+            return ok((sequences, avaliable_sequences))
 
         return avaliable_time_for_master_list
 

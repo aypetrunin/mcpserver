@@ -27,4 +27,3 @@ def crm_url(path: str) -> str:
     if not path.startswith("/"):
         path = "/" + path
     return f"{base}{path}"
-

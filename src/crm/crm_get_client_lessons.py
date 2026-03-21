@@ -6,9 +6,10 @@ URL и настройки вычисляются лениво при выпол�
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, cast
 
 import httpx
+from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
@@ -62,7 +63,9 @@ def _validate_str_param(value: Any) -> bool:
 
 
 @CRM_HTTP_RETRY
-async def _fetch_client_lessons(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
+async def _fetch_client_lessons(
+    payload: dict[str, Any], timeout_s: float
+) -> dict[str, Any]:
     """Выполняет запрос к GO CRM и возвращает JSON."""
     client = get_http()
     url = crm_url(GET_RECORDS_PATH)
@@ -80,7 +83,9 @@ async def _fetch_client_lessons(payload: dict[str, Any], timeout_s: float) -> di
     return data
 
 
-async def go_get_client_lessons(phone: str, channel_id: str, timeout: float = 0.0) -> ResponsePayload:
+async def go_get_client_lessons(
+    phone: str, channel_id: str, timeout: float = 0.0
+) -> ResponsePayload:
     """Возвращает расписание клиента из GO CRM."""
     for name, value in (("channel_id", channel_id), ("phone", phone)):
         if not _validate_str_param(value):
@@ -93,7 +98,9 @@ async def go_get_client_lessons(phone: str, channel_id: str, timeout: float = 0.
     effective_timeout = crm_timeout_s(timeout)
 
     try:
-        resp_json = await _fetch_client_lessons(payload=payload, timeout_s=effective_timeout)
+        resp_json = await _fetch_client_lessons(
+            payload=payload, timeout_s=effective_timeout
+        )
 
     except httpx.HTTPStatusError as e:
         logger.warning(
@@ -108,7 +115,9 @@ async def go_get_client_lessons(phone: str, channel_id: str, timeout: float = 0.
 
     except httpx.RequestError as e:
         logger.warning("request error payload=%s: %s", payload, e)
-        return ErrorResponse(success=False, error="Сетевая ошибка при обращении к GO CRM.")
+        return ErrorResponse(
+            success=False, error="Сетевая ошибка при обращении к GO CRM."
+        )
 
     except ValueError:
         logger.exception("invalid json payload=%s", payload)
@@ -116,7 +125,9 @@ async def go_get_client_lessons(phone: str, channel_id: str, timeout: float = 0.
 
     except Exception as e:
         logger.exception("unexpected error payload=%s: %s", payload, e)
-        return ErrorResponse(success=False, error="Неизвестная ошибка при обращении к GO CRM.")
+        return ErrorResponse(
+            success=False, error="Неизвестная ошибка при обращении к GO CRM."
+        )
 
     if resp_json.get("success") is not True:
         msg = f"Нет данных в системе для channel_id={channel_id}, phone={phone}"
@@ -125,7 +136,9 @@ async def go_get_client_lessons(phone: str, channel_id: str, timeout: float = 0.
 
     lessons_raw = resp_json.get("lessons") or []
     if not isinstance(lessons_raw, list):
-        return ErrorResponse(success=False, error="GO CRM вернул некорректный список уроков.")
+        return ErrorResponse(
+            success=False, error="GO CRM вернул некорректный список уроков."
+        )
 
     lessons_list = cast(list[dict[str, Any]], lessons_raw)
 

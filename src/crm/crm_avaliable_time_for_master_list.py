@@ -48,7 +48,9 @@ def _error_tuple(message: str) -> tuple[list[dict[str, Any]], list[dict[str, Any
     return ([{"success": False, "error": message}], [])
 
 
-def filter_sequences_list(name: str, sequences_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def filter_sequences_list(
+    name: str, sequences_list: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Фильтрует список последовательностей по названию услуги."""
     map_name = {
         "Прессотерапия": "Прессотерапия",
@@ -63,7 +65,9 @@ def filter_sequences_list(name: str, sequences_list: list[dict[str, Any]]) -> li
     return [item for item in sequences_list if item.get("master_name") == expected]
 
 
-def filter_future_slots(server_name: str, masters_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def filter_future_slots(
+    server_name: str, masters_data: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Оставляет только будущие слоты с учётом тайм-зоны агента."""
     now = now_local(server_name)
     result: list[dict[str, Any]] = []
@@ -128,7 +132,9 @@ def update_services_in_sequences(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def avaliable_sequences_short(avaliable_sequences: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def avaliable_sequences_short(
+    avaliable_sequences: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Строит сокращённый список последовательностей комплекса."""
     result: list[dict[str, Any]] = []
     for seq in avaliable_sequences:
@@ -252,7 +258,9 @@ async def avaliable_time_for_master_list_async(
             parsed_pairs: list[tuple[datetime, str]] = []
             for s in dates_str:
                 try:
-                    parsed_pairs.append((parse_slot(server_name, s, fmt_no_tz=DT_FMT_SLOT), s))
+                    parsed_pairs.append(
+                        (parse_slot(server_name, s, fmt_no_tz=DT_FMT_SLOT), s)
+                    )
                 except ValueError:
                     continue
             parsed_pairs.sort(key=lambda x: x[0])
@@ -276,7 +284,10 @@ async def avaliable_time_for_master_list_async(
 
     if isinstance(avaliable_sequences, list):
         sequences_list = [
-            {"sequence_id": seq.get("sequence_id"), "start_time": seq.get("total_start_time")}
+            {
+                "sequence_id": seq.get("sequence_id"),
+                "start_time": seq.get("total_start_time"),
+            }
             for seq in avaliable_sequences
             if isinstance(seq, dict)
         ]

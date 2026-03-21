@@ -41,4 +41,3 @@ async def build_tools_anastasia(server_name: str, channel_ids: list[str]) -> lis
         tool_remember_product_id_list,
         tool_available_time_for_master_list,
     ]
-

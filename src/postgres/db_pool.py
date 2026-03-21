@@ -55,7 +55,9 @@ def get_pg_pool() -> asyncpg.Pool:
         RuntimeError: Если пул ещё не инициализирован.
     """
     if _pool is None:
-        raise RuntimeError("Postgres pool not initialized. Call init_pg_pool() on startup.")
+        raise RuntimeError(
+            "Postgres pool not initialized. Call init_pg_pool() on startup."
+        )
     return _pool
 
 

@@ -21,4 +21,3 @@ def __getattr__(name: str) -> Any:
         return mapping[name]
     except KeyError as e:
         raise AttributeError(name) from e
-

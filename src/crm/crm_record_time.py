@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TypedDict
+from typing import Any
 
 import httpx
+from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
@@ -91,7 +92,11 @@ async def record_time_async(
                 "info": f"Запись к master_id={staff_id} на время {requested_datetime} сделана",
             }
 
-        logger.info("Бронирование успешно выполнено user_id=%s service_id=%s", user_id, product_id)
+        logger.info(
+            "Бронирование успешно выполнено user_id=%s service_id=%s",
+            user_id,
+            product_id,
+        )
         return resp_json
 
     except httpx.HTTPStatusError as e:
@@ -108,16 +113,22 @@ async def record_time_async(
         return {"success": False, "error": "network_error"}
 
     except ValueError as e:
-        logger.error("Некорректный ответ CRM при бронировании service_id=%s: %s", product_id, e)
+        logger.error(
+            "Некорректный ответ CRM при бронировании service_id=%s: %s", product_id, e
+        )
         return {"success": False, "error": "invalid_response"}
 
     except Exception as e:
-        logger.exception("Неожиданная ошибка при бронировании service_id=%s: %s", product_id, e)
+        logger.exception(
+            "Неожиданная ошибка при бронировании service_id=%s: %s", product_id, e
+        )
         return {"success": False, "error": "Неизвестная ошибка при записи"}
 
 
 @CRM_HTTP_RETRY
-async def _create_booking_payload(*, url: str, payload: RecordTimePayload, timeout_s: float) -> dict[str, Any]:
+async def _create_booking_payload(
+    *, url: str, payload: RecordTimePayload, timeout_s: float
+) -> dict[str, Any]:
     """Выполняет HTTP-запрос бронирования и возвращает JSON."""
     client = get_http()
 

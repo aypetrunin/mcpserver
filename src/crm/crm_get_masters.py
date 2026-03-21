@@ -6,9 +6,10 @@ URL и настройки вычисляются лениво при выпол�
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, cast
 
 import httpx
+from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
@@ -36,7 +37,9 @@ class MastersOk(TypedDict):
 
 
 @CRM_HTTP_RETRY
-async def _fetch_masters_payload(payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
+async def _fetch_masters_payload(
+    payload: dict[str, Any], timeout_s: float
+) -> dict[str, Any]:
     """Выполняет запрос списка мастеров и возвращает JSON."""
     client = get_http()
     url = crm_url(MASTERS_PATH)
@@ -60,7 +63,9 @@ async def get_masters(channel_id: int, timeout: float = 0.0) -> Payload[list[Mas
     effective_timeout = crm_timeout_s(timeout)
 
     try:
-        resp_any = await _fetch_masters_payload(payload=payload, timeout_s=effective_timeout)
+        resp_any = await _fetch_masters_payload(
+            payload=payload, timeout_s=effective_timeout
+        )
 
     except httpx.HTTPStatusError as e:
         logger.error(
@@ -77,15 +82,22 @@ async def get_masters(channel_id: int, timeout: float = 0.0) -> Payload[list[Mas
             channel_id,
             e,
         )
-        return err(code="network_error", error="Сетевая ошибка при получении списка мастеров")
+        return err(
+            code="network_error", error="Сетевая ошибка при получении списка мастеров"
+        )
 
     except ValueError:
         logger.exception("CRM вернул некорректный JSON channel_id=%s", channel_id)
         return err(code="crm_bad_response", error="CRM вернул некорректный JSON")
 
     except Exception:
-        logger.exception("Неожиданная ошибка при получении мастеров channel_id=%s", channel_id)
-        return err(code="unexpected_error", error="Неизвестная ошибка при получении списка мастеров")
+        logger.exception(
+            "Неожиданная ошибка при получении мастеров channel_id=%s", channel_id
+        )
+        return err(
+            code="unexpected_error",
+            error="Неизвестная ошибка при получении списка мастеров",
+        )
 
     if not isinstance(resp_any, dict):
         return err(code="crm_bad_response", error="CRM вернул некорректный JSON")
@@ -97,7 +109,9 @@ async def get_masters(channel_id: int, timeout: float = 0.0) -> Payload[list[Mas
 
     masters_raw = resp.get("masters")
     if not isinstance(masters_raw, list):
-        return err(code="crm_bad_response", error="CRM вернул некорректный список мастеров")
+        return err(
+            code="crm_bad_response", error="CRM вернул некорректный список мастеров"
+        )
 
     masters: list[Master] = []
     for item in masters_raw:

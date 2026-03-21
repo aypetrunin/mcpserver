@@ -12,10 +12,10 @@ ENV (dev/prod) загружается через init_runtime().
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import signal
-import traceback
 from typing import Awaitable, Callable
 
 from fastmcp import FastMCP
@@ -27,7 +27,6 @@ from src.postgres.db_pool import init_pg_pool, close_pg_pool
 from src.clients import init_clients, close_clients
 from src.runtime import init_runtime
 from src.settings import get_settings
-
 
 # --------------------------------------------------------------------------
 # ЛОГИРОВАНИЕ
@@ -120,6 +119,94 @@ async def check_postgres_is_alive() -> None:
 
 
 # --------------------------------------------------------------------------
+# SUPERVISOR HELPERS
+# --------------------------------------------------------------------------
+async def cancel_and_await(tasks: list[asyncio.Task[None]]) -> None:
+    """
+    Единый путь "мягкой" остановки: cancel всем + await gather.
+    """
+    for t in tasks:
+        if not t.done():
+            t.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def start_tenants(SERVERS) -> list[asyncio.Task[None]]:
+    """
+    Стартует tenant-задачи (serve) и возвращает список asyncio.Task.
+    Включает fail-fast валидацию env на tenant.
+    """
+    tasks: list[asyncio.Task[None]] = []
+
+    for spec in SERVERS:
+        port = require_int_env(spec.env_port)
+
+        # FAIL-FAST: channel_ids должны быть заданы
+        require_nonempty_env(spec.channel_ids_env)
+
+        build = spec.build
+        if build is None:
+            raise RuntimeError(f"spec.build is not set for tenant={spec.name}")
+
+        task = asyncio.create_task(
+            run_one(spec.name, port, build),
+            name=f"mcp:{spec.name}",
+        )
+        tasks.append(task)
+
+    logger.info("tenants started: %s", [(t.get_name()) for t in tasks])
+    return tasks
+
+
+async def wait_stop_or_failure(
+    tasks: list[asyncio.Task[None]],
+    stop_event: asyncio.Event,
+) -> None:
+    """
+    Семантика supervisor-а:
+      - stop_event -> graceful shutdown (return)
+      - завершение любого tenant-task:
+          - с исключением -> fail-fast (raise исключение)
+          - без исключения -> тоже fail-fast (serve() не должен завершаться сам)
+    """
+    stop_task = asyncio.create_task(stop_event.wait(), name="stop_event")
+    try:
+        done, _pending = await asyncio.wait(
+            [*tasks, stop_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        # GRACEFUL SHUTDOWN
+        if stop_task in done:
+            logger.info("graceful shutdown requested")
+            return
+
+        # FAIL-FAST: завершился tenant
+        logger.error("one of MCP servers exited — FAIL-FAST")
+        for t in done:
+            if t is stop_task:
+                continue
+
+            exc = t.exception()
+            if exc is not None:
+                logger.error(
+                    "server crashed",
+                    extra={"task": t.get_name(), "error": repr(exc)},
+                    exc_info=exc,
+                )
+                raise exc
+
+            logger.error("server exited unexpectedly", extra={"task": t.get_name()})
+            raise RuntimeError(f"server exited unexpectedly: {t.get_name()}")
+
+    finally:
+        stop_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await stop_task
+
+
+# --------------------------------------------------------------------------
 # SUPERVISOR
 # --------------------------------------------------------------------------
 async def main() -> None:
@@ -148,8 +235,8 @@ async def main() -> None:
 
     try:
         await check_postgres_is_alive()
-    except Exception as e:
-        logger.error("postgres is not responding", extra={"error": repr(e)})
+    except Exception:
+        logger.exception("postgres is not responding")
         raise
 
     # --------------------------------------------------
@@ -175,82 +262,27 @@ async def main() -> None:
             pass
 
     tasks: list[asyncio.Task[None]] = []
-    stop_task: asyncio.Task | None = None
 
     try:
         # --------------------------------------------------
         # START TENANTS
         # --------------------------------------------------
-        for spec in SERVERS:
-            port = require_int_env(spec.env_port)
-
-            # FAIL-FAST: channel_ids должны быть заданы
-            require_nonempty_env(spec.channel_ids_env)
-
-            build = spec.build
-            if build is None:
-                raise RuntimeError(f"spec.build is not set for tenant={spec.name}")
-
-            task = asyncio.create_task(
-                run_one(spec.name, port, build),
-                name=f"mcp:{spec.name}",
-            )
-            tasks.append(task)
-
-        # FIX: создаём stop_task (раньше он всегда был None)
-        stop_task = asyncio.create_task(stop_event.wait(), name="stop_event")
+        tasks = await start_tenants(SERVERS)
 
         # --------------------------------------------------
-        # WAIT
+        # WAIT (stop OR fail-fast)
         # --------------------------------------------------
-        done, pending = await asyncio.wait(
-            [*tasks, stop_task],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-
-        # GRACEFUL SHUTDOWN
-        if stop_task in done:
-            logger.info("graceful shutdown requested")
-            for t in tasks:
-                t.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            return
-
-        # FAIL-FAST
-        logger.error("one of MCP servers crashed — FAIL-FAST")
-
-        for t in done:
-            if t is stop_task:
-                continue
-            exc = t.exception()
-            if exc:
-                logger.error("server crashed", extra={"task": t.get_name(), "error": repr(exc)})
-                traceback.print_exception(type(exc), exc, exc.__traceback__)
-            else:
-                logger.error("server exited unexpectedly", extra={"task": t.get_name()})
-
-        for t in pending:
-            t.cancel()
-
-        await asyncio.gather(*pending, return_exceptions=True)
-        raise SystemExit(1)
+        await wait_stop_or_failure(tasks, stop_event)
+        return
 
     finally:
         # --------------------------------------------------
         # CLEANUP
         # --------------------------------------------------
 
-        # FIX: сначала гарантированно гасим tenant-задачи,
+        # Сначала гарантированно гасим tenant-задачи,
         # чтобы они не работали в момент закрытия пула/клиентов.
-        for t in tasks:
-            if not t.done():
-                t.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-        if stop_task is not None and not stop_task.done():
-            stop_task.cancel()
-            await asyncio.gather(stop_task, return_exceptions=True)
+        await cancel_and_await(tasks)
 
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
@@ -272,6 +304,284 @@ async def main() -> None:
 # --------------------------------------------------------------------------
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+
+
+# """
+# main_v2.py — главный вход в mcpserver (FAIL-FAST supervisor).
+
+# Запускает несколько MCP-tenant'ов в одном процессе и:
+# - падает, если падает ЛЮБОЙ tenant
+# - корректно обрабатывает SIGINT / SIGTERM
+# - закрывает Postgres / HTTP клиенты
+
+# ENV (dev/prod) загружается через init_runtime().
+# """
+
+# from __future__ import annotations
+
+# import asyncio
+# import logging
+# import os
+# import signal
+# import traceback
+# from typing import Awaitable, Callable
+
+# from fastmcp import FastMCP
+
+# # --------------------------------------------------------------------------
+# # РЕСУРСЫ
+# # --------------------------------------------------------------------------
+# from src.postgres.db_pool import init_pg_pool, close_pg_pool
+# from src.clients import init_clients, close_clients
+# from src.runtime import init_runtime
+# from src.settings import get_settings
+
+
+# # --------------------------------------------------------------------------
+# # ЛОГИРОВАНИЕ
+# # --------------------------------------------------------------------------
+# logger = logging.getLogger("mcpserver")
+
+
+# def setup_logging() -> None:
+#     level = os.getenv("LOG_LEVEL", "INFO").upper()
+#     logging.basicConfig(
+#         level=level,
+#         format="%(asctime)s %(levelname)s %(name)s %(message)s",
+#     )
+
+
+# # --------------------------------------------------------------------------
+# # ENV HELPERS
+# # --------------------------------------------------------------------------
+# def require_int_env(name: str) -> int:
+#     raw = os.getenv(name)
+#     if raw is None or raw.strip() == "":
+#         raise RuntimeError(f"Отсутствует env переменная: {name}")
+#     try:
+#         return int(raw)
+#     except ValueError as e:
+#         raise RuntimeError(f"Некорректный int в env {name}={raw!r}") from e
+
+
+# def require_nonempty_env(name: str) -> str:
+#     """
+#     Читает env и гарантирует, что значение непустое.
+
+#     Используется для CHANNEL_IDS_* (fail-fast).
+#     """
+#     raw = os.getenv(name)
+#     if raw is None or raw.strip() == "":
+#         raise RuntimeError(f"Отсутствует или пустая env переменная: {name}")
+#     return raw
+
+
+# # --------------------------------------------------------------------------
+# # MCP RUNNER
+# # --------------------------------------------------------------------------
+# BuildFn = Callable[[], Awaitable[FastMCP]]
+
+
+# async def run_one(name: str, port: int, build: BuildFn) -> None:
+#     logger.info("mcp.start tenant=%s port=%s", name, port)
+
+#     try:
+#         mcp = await build()
+#     except asyncio.CancelledError:
+#         logger.info("mcp.build.cancelled tenant=%s", name)
+#         raise
+#     except Exception:
+#         logger.exception("mcp.build.failed tenant=%s", name)
+#         raise
+#     else:
+#         logger.info("mcp.build.ok tenant=%s", name)
+
+#     try:
+#         await mcp.run_async(
+#             transport="sse",
+#             host="0.0.0.0",
+#             port=port,
+#         )
+#     except asyncio.CancelledError:
+#         logger.info("mcp.run.cancelled tenant=%s", name)
+#         raise
+#     except OSError:
+#         logger.exception("mcp.run.oserror tenant=%s port=%s", name, port)
+#         raise
+#     except Exception:
+#         logger.exception("mcp.run.failed tenant=%s", name)
+#         raise
+#     finally:
+#         logger.info("mcp.run.exit tenant=%s", name)
+
+
+# # --------------------------------------------------------------------------
+# # POSTGRES CHECK
+# # --------------------------------------------------------------------------
+# async def check_postgres_is_alive() -> None:
+#     pg_timeout = float(os.getenv("PG_QUERY_TIMEOUT_S", "5"))
+#     from src.postgres.db_pool import get_pg_pool
+
+#     pool = get_pg_pool()
+#     async with pool.acquire() as conn:
+#         await conn.execute("SELECT 1", timeout=pg_timeout)
+
+
+# # --------------------------------------------------------------------------
+# # SUPERVISOR
+# # --------------------------------------------------------------------------
+# async def main() -> None:
+#     pg_inited = False
+#     http_inited = False
+
+#     # --------------------------------------------------
+#     # ENV + LOGGING
+#     # --------------------------------------------------
+#     init_runtime()
+#     setup_logging()
+
+#     from src.server.server_registry import SERVERS
+
+#     settings = get_settings()
+#     logger.info("Runtime ENV=%s LOG_LEVEL=%s", settings.ENV, settings.LOG_LEVEL)
+
+#     loop = asyncio.get_running_loop()
+
+#     # --------------------------------------------------
+#     # POSTGRES
+#     # --------------------------------------------------
+#     logger.info("initializing postgres pool")
+#     await init_pg_pool()
+#     pg_inited = True
+
+#     try:
+#         await check_postgres_is_alive()
+#     except Exception as e:
+#         logger.error("postgres is not responding", extra={"error": repr(e)})
+#         raise
+
+#     # --------------------------------------------------
+#     # HTTP CLIENTS
+#     # --------------------------------------------------
+#     logger.info("initializing http clients")
+#     await init_clients()
+#     http_inited = True
+
+#     # --------------------------------------------------
+#     # SHUTDOWN SIGNAL
+#     # --------------------------------------------------
+#     stop_event = asyncio.Event()
+
+#     def _request_stop() -> None:
+#         logger.info("shutdown signal received")
+#         stop_event.set()
+
+#     for sig in (signal.SIGINT, signal.SIGTERM):
+#         try:
+#             loop.add_signal_handler(sig, _request_stop)
+#         except NotImplementedError:
+#             pass
+
+#     tasks: list[asyncio.Task[None]] = []
+#     stop_task: asyncio.Task | None = None
+
+#     try:
+#         # --------------------------------------------------
+#         # START TENANTS
+#         # --------------------------------------------------
+#         for spec in SERVERS:
+#             port = require_int_env(spec.env_port)
+
+#             # FAIL-FAST: channel_ids должны быть заданы
+#             require_nonempty_env(spec.channel_ids_env)
+
+#             build = spec.build
+#             if build is None:
+#                 raise RuntimeError(f"spec.build is not set for tenant={spec.name}")
+
+#             task = asyncio.create_task(
+#                 run_one(spec.name, port, build),
+#                 name=f"mcp:{spec.name}",
+#             )
+#             tasks.append(task)
+
+#         # FIX: создаём stop_task (раньше он всегда был None)
+#         stop_task = asyncio.create_task(stop_event.wait(), name="stop_event")
+
+#         # --------------------------------------------------
+#         # WAIT
+#         # --------------------------------------------------
+#         done, pending = await asyncio.wait(
+#             [*tasks, stop_task],
+#             return_when=asyncio.FIRST_COMPLETED,
+#         )
+
+#         # GRACEFUL SHUTDOWN
+#         if stop_task in done:
+#             logger.info("graceful shutdown requested")
+#             for t in tasks:
+#                 t.cancel()
+#             await asyncio.gather(*tasks, return_exceptions=True)
+#             return
+
+#         # FAIL-FAST
+#         logger.error("one of MCP servers crashed — FAIL-FAST")
+
+#         for t in done:
+#             if t is stop_task:
+#                 continue
+#             exc = t.exception()
+#             if exc:
+#                 logger.error("server crashed", extra={"task": t.get_name(), "error": repr(exc)})
+#                 traceback.print_exception(type(exc), exc, exc.__traceback__)
+#             else:
+#                 logger.error("server exited unexpectedly", extra={"task": t.get_name()})
+
+#         for t in pending:
+#             t.cancel()
+
+#         await asyncio.gather(*pending, return_exceptions=True)
+#         raise SystemExit(1)
+
+#     finally:
+#         # --------------------------------------------------
+#         # CLEANUP
+#         # --------------------------------------------------
+
+#         # FIX: сначала гарантированно гасим tenant-задачи,
+#         # чтобы они не работали в момент закрытия пула/клиентов.
+#         for t in tasks:
+#             if not t.done():
+#                 t.cancel()
+#         if tasks:
+#             await asyncio.gather(*tasks, return_exceptions=True)
+
+#         if stop_task is not None and not stop_task.done():
+#             stop_task.cancel()
+#             await asyncio.gather(stop_task, return_exceptions=True)
+
+#         for sig in (signal.SIGINT, signal.SIGTERM):
+#             try:
+#                 loop.remove_signal_handler(sig)
+#             except NotImplementedError:
+#                 pass
+
+#         if http_inited:
+#             logger.info("closing http clients")
+#             await close_clients()
+
+#         if pg_inited:
+#             logger.info("closing postgres pool")
+#             await close_pg_pool()
+
+
+# # --------------------------------------------------------------------------
+# # ENTRYPOINT
+# # --------------------------------------------------------------------------
+# if __name__ == "__main__":
+#     asyncio.run(main())
 
 
 

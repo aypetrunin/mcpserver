@@ -35,7 +35,9 @@ def get_env_int(name: str) -> int:
     try:
         return int(raw)
     except ValueError as exc:
-        raise RuntimeError(f"Некорректный {name}={raw!r}: ожидается целое число") from exc
+        raise RuntimeError(
+            f"Некорректный {name}={raw!r}: ожидается целое число"
+        ) from exc
 
 
 def get_env_csv(name: str) -> list[str]:

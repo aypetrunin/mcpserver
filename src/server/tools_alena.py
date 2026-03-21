@@ -37,4 +37,3 @@ async def build_tools_alena(server_name: str, channel_ids: list[str]) -> list[To
         tool_update_client_lesson,
         tool_get_client_statistics,
     ]
-

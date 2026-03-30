@@ -19,7 +19,8 @@ from src.crm._crm_result import Payload, err, ok
 
 from ..crm.crm_record_time import record_time_async  # type: ignore
 from ..postgres.postgres_util import read_secondary_article_by_primary  # type: ignore
-
+from ..qdrant.collections import services_collection
+from ..qdrant.retriever_faq_services import retriever_hybrid_async  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,6 @@ tool_record_time = FastMCP(name="record_time")
         "Используется, когда клиент подтвердил желание записаться на конкретную услугу "
         "в указанное время. Фиксирует запись для последующего подтверждения или обработки.\n\n"
         "**Args:**\n"
-        "- session_id (`str`, required): ID dialog session.\n"
         "- office_id (`str`, required): ID филиала.\n"
         "- date (`str`, required): Дата записи в формате YYYY-MM-DD (пример: 2025-07-22).\n"
         "- time (`str`, required): Время записи в формате HH:MM (пример: 08:00, 13:00).\n"
@@ -47,7 +47,6 @@ tool_record_time = FastMCP(name="record_time")
     ),
 )
 async def record_time(
-    session_id: str,
     office_id: str,
     date: str,
     time: str,
@@ -57,15 +56,20 @@ async def record_time(
     master_id: int = 0,
 ) -> Payload[Any]:
     """Записать клиента на услугу на указанную дату и время."""
-    _ = session_id  # сейчас не используется
 
     # ------------------------------------------------------------------
-    # 1) Валидация входных параметров (fail-fast)
+    # 1) Валидация входных параметров
     # ------------------------------------------------------------------
     if not isinstance(product_id, str) or not product_id.strip():
         return err(
             code="validation_error",
             error="Параметр product_id обязателен и не должен быть пустым.",
+        )
+
+    if not isinstance(product_name, str) or not product_name.strip():
+        return err(
+            code="validation_error",
+            error="Параметр product_name обязателен и не должен быть пустым.",
         )
 
     try:
@@ -76,7 +80,6 @@ async def record_time(
             error="Некорректный office_id: ожидается числовое значение.",
         )
 
-    # product_id должен быть вида "число-число"
     parts = product_id.split("-", 1)
     if len(parts) != 2 or not parts[0] or not parts[1]:
         return err(
@@ -92,12 +95,12 @@ async def record_time(
             error="Некорректный product_id: первая часть должна быть числом (канал), например '1-232324'.",
         )
 
-    # date/time формат
     if not isinstance(date, str) or not date.strip():
         return err(
             code="validation_error",
             error="Параметр date обязателен и не должен быть пустым.",
         )
+
     if not isinstance(time, str) or not time.strip():
         return err(
             code="validation_error",
@@ -116,7 +119,8 @@ async def record_time(
         datetime.strptime(time, "%H:%M")
     except ValueError:
         return err(
-            code="validation_error", error="Некорректный формат time. Ожидается HH:MM."
+            code="validation_error",
+            error="Некорректный формат time. Ожидается HH:MM.",
         )
 
     if not isinstance(client_id, int) or client_id <= 0:
@@ -132,17 +136,18 @@ async def record_time(
         )
 
     logger.info(
-        "[record_time] вход | office_id=%s date=%s time=%s product_id=%s client_id=%s master_id=%s",
+        "[record_time] вход | office_id=%s date=%s time=%s product_id=%s product_name=%s client_id=%s master_id=%s",
         office_id_int,
         date,
         time,
         product_id,
+        product_name,
         client_id,
         master_id,
     )
 
     # ------------------------------------------------------------------
-    # 2) Маппинг primary -> secondary product_id (если записываем в другой филиал)
+    # 2) Маппинг primary -> secondary product_id
     # ------------------------------------------------------------------
     try:
         if office_id_int != primary_channel_int:
@@ -174,7 +179,7 @@ async def record_time(
         )
 
     # ------------------------------------------------------------------
-    # 3) Вызов CRM (action)
+    # 3) Вызов CRM
     # ------------------------------------------------------------------
     try:
         crm_resp = await record_time_async(
@@ -189,32 +194,73 @@ async def record_time(
     except Exception as exc:
         logger.exception("[record_time] CRM call failed: %s", exc)
         return err(
-            code="crm_error", error="Не удалось записать на услугу. Попробуйте позже."
-        )
-
-    # ------------------------------------------------------------------
-    # 4) Нормализация: CRM могла вернуть свой формат
-    # ------------------------------------------------------------------
-    # Если crm_resp уже Payload — возвращаем как есть.
-    if (
-        isinstance(crm_resp, dict)
-        and crm_resp.get("success") in (True, False)
-        and ("data" in crm_resp or "error" in crm_resp)
-    ):
-        # это уже близко к Payload; но мы не можем гарантировать структуру CRM.
-        # Если success=True — оборачиваем в ok(crm_resp), чтобы внешне контракт был стабильным.
-        if crm_resp.get("success") is True:
-            return ok(crm_resp)
-        # если CRM уже отдаёт нормальный code/error — можно прокинуть,
-        # но чаще это не так, поэтому нормализуем.
-        crm_error = crm_resp.get("error")
-        return err(
             code="crm_error",
-            error=str(crm_error) if crm_error else "CRM не смогла выполнить запись",
+            error="Не удалось записать на услугу. Попробуйте позже.",
         )
 
-    # иначе просто возвращаем как data
-    return ok(crm_resp)
+    # ------------------------------------------------------------------
+    # 4) Нормализация ответа CRM
+    # ------------------------------------------------------------------
+    crm_data: dict[str, Any]
+
+    if isinstance(crm_resp, dict):
+        if crm_resp.get("success") is False:
+            crm_error = crm_resp.get("error")
+            return err(
+                code="crm_error",
+                error=str(crm_error) if crm_error else "CRM не смогла выполнить запись",
+            )
+
+        if crm_resp.get("success") is True and "data" in crm_resp:
+            if isinstance(crm_resp["data"], dict):
+                crm_data = dict(crm_resp["data"])
+            else:
+                crm_data = {"crm_result": crm_resp["data"]}
+        else:
+            crm_data = dict(crm_resp)
+    else:
+        crm_data = {"crm_result": crm_resp}
+
+    # ------------------------------------------------------------------
+    # 5) Поиск рекомендаций в Qdrant
+    # Qdrant не должен ломать успешную запись в CRM
+    # ------------------------------------------------------------------
+    filtered: list[dict[str, Any]] = []
+
+    try:
+        results = await retriever_hybrid_async(
+            query=product_name,
+            channel_id=office_id_int,
+            database_name=services_collection(),
+            limit=1,
+        )
+        logger.info(f'record_time - recommendation: {results}')
+        # allowed_keys = ("services_name", "description", "pre_session_instructions")
+        allowed_keys = ("pre_session_instructions",)
+
+        if isinstance(results, list):
+            for item in results:
+                if not isinstance(item, dict):
+                    continue
+                filtered.append({k: item[k] for k in allowed_keys if k in item})
+        else:
+            logger.warning(
+                "[record_time] invalid qdrant response format | type=%s",
+                type(results).__name__,
+            )
+
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        logger.exception("[record_time] qdrant search failed: %s", exc)
+        filtered = []
+
+    # ------------------------------------------------------------------
+    # 6) Объединяем CRM-ответ и рекомендации
+    # ------------------------------------------------------------------
+    crm_data["recommendations"] = filtered
+
+    return ok(crm_data)
 
 # """
 # MCP-сервер записи клиента на выбранную услугу на дату и время + рекомендации после записи.

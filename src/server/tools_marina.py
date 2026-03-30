@@ -12,6 +12,7 @@ from ..tools.call_administrator import tool_call_administrator
 from ..tools.class_avaliable_time_for_master import MCPAvailableTimeForMaster
 from ..tools.class_client_records import MCPClientRecords
 from ..tools.class_product_search_full import MCPSearchProductFull
+from ..tools.class_product_search_query import MCPSearchProductQuery
 from ..tools.delete_client_record import tool_record_delete
 from ..tools.faq import tool_faq
 from ..tools.recommendations import tool_recommendations
@@ -33,7 +34,8 @@ async def build_tools_marina(server_name: str, channel_ids: list[str]) -> list[T
 
     server_name и channel_ids приходят из server_spec_factory.
     """
-    product_search_builder = await MCPSearchProductFull.create(channel_ids=channel_ids)
+    # product_search_builder = await MCPSearchProductFull.create(channel_ids=channel_ids)
+    product_search_builder = MCPSearchProductQuery(channel_ids=channel_ids)
     tool_product_search = product_search_builder.get_tool()
 
     records_builder = await MCPClientRecords.create(channel_ids=channel_ids)

@@ -32,7 +32,6 @@ tool_recommendations = FastMCP(name="recommendations")
         "**Назначение:**\n"
         "Позволяет узнать рекомендации к посещению.\n\n"
         "**Args:**\n"
-        "- session_id (`str`, required): id dialog session.\n"
         "- product_name (`str`, required): Название выбранной услуги.\n"
         "- channel_id (`str`, required): id channel company.\n\n"
         "**Returns:**\n"
@@ -40,13 +39,10 @@ tool_recommendations = FastMCP(name="recommendations")
     ),
 )
 async def recommendations(
-    session_id: str,
     product_name: str,
     channel_id: str,
 ) -> Payload[list[dict[str, Any]]]:
     """Получать рекомендации по выбранной услуге через поиск в services."""
-    _ = session_id  # если реально не используешь
-
     # ------------------------------------------------------------------
     # 1) Валидация входа (fail-fast)
     # ------------------------------------------------------------------

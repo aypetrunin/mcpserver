@@ -50,7 +50,6 @@ class MCPSearchProductQuery:
 Поиск услуг по текстовому запросу (query).
 
 **Args:**
-- `session_id` (str, required): ID dialog session.
 - `query` (str, required): Свободный текст (название услуги/процедуры/категории).
 
 **Returns (единый контракт):**
@@ -90,21 +89,16 @@ class MCPSearchProductQuery:
             description=self.description,
         )
         async def product_search(
-            session_id: str,
             query: str,
         ) -> Payload[list[dict[str, Any]]]:
             # Валидация
-            if not session_id or not str(session_id).strip():
-                return err(code="validation_error", error="session_id обязателен")
-
             if not query or not str(query).strip():
                 # В query-only tool пустой query — это бессмысленно; возвращаем ok([]),
                 # чтобы не ломать диалог, но можно сделать validation_error, если хотите жёстко.
                 return ok([])
 
             logger.info(
-                "[product_search] session_id=%s query=%r channel_ids=%s",
-                session_id,
+                "[product_search] query=%r channel_ids=%s",
                 query,
                 self.channel_ids,
             )

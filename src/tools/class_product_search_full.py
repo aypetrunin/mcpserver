@@ -110,7 +110,6 @@ class MCPSearchProductFull:
 
         - короткими (10 -> 4–5, без воды)
         - в конце description
-        - с <session_id> как плейсхолдером
         - ограничиваем общий размер, чтобы не давить tool-selection
         """
         examples = textwrap.dedent(
@@ -126,7 +125,6 @@ class MCPSearchProductFull:
                 "indications": ["отечность"],
                 "contraindications": ["варикоз"],
                 "body_parts": ["ноги"],
-                "session_id": "1-232327692"
             }
 
             Пример 2: Клиент: «У меня редкие волосы на бровях, что можете предложить?»
@@ -136,7 +134,6 @@ class MCPSearchProductFull:
                 "indications": ["редкие"],
                 "contraindications": [],
                 "body_parts": ["брови", "волосы"],
-                "session_id": "1-232327692"
             }
 
             Пример 3: Клиент: «Что у вас есть для лица?»
@@ -146,9 +143,7 @@ class MCPSearchProductFull:
                 "indications": [],
                 "contraindications": [],
                 "body_parts": ["лицо"],
-                "session_id": "1-232327692"
             }
-
             Пример 4: Клиент: «Можно записаться на консультацию?»
             Вход:
             {
@@ -156,7 +151,6 @@ class MCPSearchProductFull:
                 "indications": [],
                 "contraindications": [],
                 "body_parts": [],
-                "session_id": "1-232327692"
             }
 
             Пример 5: Клиент: «Есть ли услуги для коррекции фигуры?»
@@ -166,7 +160,6 @@ class MCPSearchProductFull:
                 "indications": ["коррекция фигуры"],
                 "contraindications": [],
                 "body_parts": [],
-                "session_id": "1-232327692"
             }
 
             Пример 6: Клиент: «Нужна эпиляция волос в подмышках»
@@ -176,7 +169,6 @@ class MCPSearchProductFull:
                 "indications": ["волосы"],
                 "contraindications": [],
                 "body_parts": ["подмышки"],
-                "session_id": "1-232327692"
             }
 
             Пример 7: Клиент: «У вас есть акции на услуги?»
@@ -186,7 +178,6 @@ class MCPSearchProductFull:
                 "indications": [],
                 "contraindications": [],
                 "body_parts": [],
-                "session_id": "1-232327692"
             }
 
             Пример 8: Клиент: «Какие есть комплексы для коррекции фигуры?»
@@ -196,7 +187,6 @@ class MCPSearchProductFull:
                 "indications": ["коррекция фигуры"],
                 "contraindications": [],
                 "body_parts": [],
-                "session_id": "1-232327692"
             }
 
             Пример 9: Клиент: «какие есть процедуры для похудения»
@@ -206,7 +196,6 @@ class MCPSearchProductFull:
                 "indications": ["похудение"],
                 "contraindications": [],
                 "body_parts": [],
-                "session_id": "1-232327692"
             }
 
             Пример 10: Клиент: «какие есть процедуры для уменьшения объемов тела»
@@ -216,7 +205,6 @@ class MCPSearchProductFull:
                 "indications": ["уменьшение объемов"],
                 "contraindications": [],
                 "body_parts": [тело],
-                "session_id": "1-232327692"
             }            
             """
         ).strip()
@@ -243,7 +231,6 @@ class MCPSearchProductFull:
             - indications: максимум 2 значения.
             - contraindications: максимум 2 значения.
             - body_parts: максимум 2 значения.
-            - session_id обязателен.
             - Если query пустой, заполни хотя бы один из списков (indications или body_parts), иначе оставь query непустым.
             - Если одно и то же значение подходит и для indications, и для contraindications — предпочитай indications.
             """
@@ -280,9 +267,6 @@ class MCPSearchProductFull:
             {self._pretty_list_multiline(self.key.get("body_parts"))}
             ]
 
-            session_id (str):
-            Идентификатор диалога.
-
             ────────────────────
             РЕЗУЛЬТАТ (единый контракт)
             ────────────────────
@@ -315,15 +299,12 @@ class MCPSearchProductFull:
             description=self.description,
         )
         async def product_search(
-            session_id: str,
             query: str | None = None,
             indications: list[str] | None = None,
             contraindications: list[str] | None = None,
             body_parts: list[str] | None = None,
         ) -> Payload[list[dict[str, Any]]]:
             # Валидация
-            if not session_id or not str(session_id).strip():
-                return err(code="validation_error", error="session_id обязателен")
 
             # Мягкая защита от полностью пустого запроса:
             # если нет ни query, ни параметров — просто нечего искать.
@@ -333,9 +314,8 @@ class MCPSearchProductFull:
                 return ok([])
 
             logger.info(
-                "Запрос на 'product_search': channel_ids=%s session_id=%s query=%r body_parts=%r indications=%r contraindications=%r",
+                "Запрос на 'product_search': channel_ids=%s query=%r body_parts=%r indications=%r contraindications=%r",
                 self.channel_ids,
-                session_id,
                 query,
                 body_parts,
                 indications,

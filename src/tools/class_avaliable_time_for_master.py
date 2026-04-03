@@ -118,7 +118,6 @@ class MCPAvailableTimeForMaster:
             - Когда можно записаться к Кристине?
 
             **Args:**
-            - `session_id` (`str`, required): id dialog session
             - `office_id` (`str`, required): id филиала (приоритетный филиал)
             - `product_id` (`str`, required): идентификатор услуги в формате "1-232324"
             - `date` (`str`, required): дата в формате YYYY-MM-DD
@@ -135,7 +134,6 @@ class MCPAvailableTimeForMaster:
             description=self.description,
         )
         async def avaliable_time_for_master(
-            session_id: str,
             office_id: str,
             date: str,
             product_id: str,
@@ -148,10 +146,9 @@ class MCPAvailableTimeForMaster:
                 return int((time.perf_counter() - since) * 1000)
 
             logger.info(
-                "[avaliable_time_for_master][%s] START | server=%s session_id=%r office_id=%r date=%r product_id=%r channel_ids=%s",
+                "[avaliable_time_for_master][%s] START | server=%s office_id=%r date=%r product_id=%r channel_ids=%s",
                 trace_id,
                 self.server_name,
-                session_id,
                 office_id,
                 date,
                 product_id,
@@ -160,13 +157,6 @@ class MCPAvailableTimeForMaster:
 
             # 0) Валидация входа
             t_val = time.perf_counter()
-            if not session_id or not str(session_id).strip():
-                logger.warning(
-                    "[avaliable_time_for_master][%s] VALIDATION_FAIL | field=session_id duration_ms=%s",
-                    trace_id,
-                    ms(t_val),
-                )
-                return err(code="validation_error", error="session_id обязателен")
 
             if not office_id or not str(office_id).strip():
                 logger.warning(

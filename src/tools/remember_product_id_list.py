@@ -22,7 +22,6 @@ tool_remember_product_id_list = FastMCP(name="remember_product_id_list")
         "- «Запишите на эпиляцию ног»\n"
         "- «Хочу прессотерапию и роликовый массажёр»\n\n"
         "**Args:**\n"
-        "- session_id (`str`, required): ID диалоговой сессии.\n"
         "- product_id (`list[str]`, required): Список ID услуг (формат: 2-113323232).\n"
         "- product_name (`list[str]`, required): Список названий услуг.\n\n"
         "**Returns:**\n"
@@ -30,7 +29,6 @@ tool_remember_product_id_list = FastMCP(name="remember_product_id_list")
     ),
 )
 async def remember_product_id(
-    session_id: str,
     product_id: list[str],
     product_name: list[str],
 ) -> Payload[list[dict[str, str]]]:
@@ -41,14 +39,6 @@ async def remember_product_id(
     - ok(data)  — услуги валидны и зафиксированы
     - err(...)  — ошибка валидации
     """
-    # ------------------------------------------------------------
-    # session_id — нужен для контекста, но здесь не используется
-    # ------------------------------------------------------------
-    if not isinstance(session_id, str) or not session_id.strip():
-        return err(
-            code="validation_error",
-            error="Параметр session_id обязателен и не должен быть пустым.",
-        )
 
     # ------------------------------------------------------------
     # Валидация списков

@@ -41,7 +41,7 @@ tool_record_time = FastMCP(name="record_time")
         "- product_id (`str`, required): Идентификатор услуги (формат: 1-232324).\n"
         "- product_name (`str`, required): Название услуги.\n"
         "- client_id (`int`, required): ID клиента.\n"
-        "- master_id (`int`, optional): ID мастера.\n\n"
+        "- master_id (`int`, required): ID мастера.\n\n"
         "**Returns:**\n"
         "- Payload[dict]\n"
     ),
@@ -53,7 +53,7 @@ async def record_time(
     product_id: str,
     product_name: str,
     client_id: int,
-    master_id: int = 0,
+    master_id: int ,
 ) -> Payload[Any]:
     """Записать клиента на услугу на указанную дату и время."""
 

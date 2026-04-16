@@ -28,10 +28,21 @@ _bm25_model: Bm25 | None = None
 
 
 def get_bm25_model() -> Bm25:
-    """Возвращает синглтон BM25-модели для sparse-поиска."""
+    """Возвращает синглтон BM25-модели для sparse-поиска.
+
+    Если задана env BM25_MODEL_PATH — загружает модель из локального кеша,
+    без обращения к HuggingFace (актуально для Docker/WSL).
+    """
     global _bm25_model
     if _bm25_model is None:
-        _bm25_model = Bm25("Qdrant/bm25", language="russian")
+        import os
+
+        bm25_model_path = os.environ.get("BM25_MODEL_PATH")
+        _bm25_model = Bm25(
+            "Qdrant/bm25",
+            language="russian",
+            **({"specific_model_path": bm25_model_path} if bm25_model_path else {}),
+        )
     return _bm25_model
 
 

@@ -18,6 +18,9 @@ services:
       - ./src:/app/src
       - ./pyproject.toml:/app/pyproject.toml
       - ./uv.lock:/app/uv.lock
+      - ../apifast/models/bm25:/app/models/bm25:ro
+    environment:
+      - BM25_MODEL_PATH=/app/models/bm25
     restart: unless-stopped
     networks:
       - zena-network

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -10,9 +9,10 @@ from fastmcp import FastMCP
 from src.crm._crm_result import Payload, err, ok
 
 from ..crm.crm_get_client_statistics import go_get_client_statisics  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_get_client_statistics = FastMCP(name="get_client_statistics")
 
@@ -36,6 +36,7 @@ tool_get_client_statistics = FastMCP(name="get_client_statistics")
         "- Payload[dict]\n"
     ),
 )
+@with_tracing
 async def get_client_statistics(
     phone: str,
     channel_id: str,

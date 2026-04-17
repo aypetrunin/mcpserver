@@ -9,6 +9,8 @@ from fastmcp import FastMCP
 
 from src.crm._crm_result import Payload, err, ok
 
+from ..zena_logging import with_tracing
+
 
 tool_remember_office = FastMCP(name="remember_office")
 
@@ -29,6 +31,7 @@ tool_remember_office = FastMCP(name="remember_office")
         '   Вход: {"office_id": "10", "office_address": "ул. Мира, 21"}\n'
     ),
 )
+@with_tracing
 async def remember_office(
     office_id: str,
     office_address: str,

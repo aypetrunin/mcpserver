@@ -11,6 +11,8 @@ from fastmcp import FastMCP
 
 from src.crm._crm_result import Payload, err, ok
 
+from ..zena_logging import with_tracing
+
 
 tool_remember_desired_time = FastMCP(name="remember_desired_time")
 
@@ -30,6 +32,7 @@ tool_remember_desired_time = FastMCP(name="remember_desired_time")
         '   Вход: {"time_hhmm": "12:00"}\n'
     ),
 )
+@with_tracing
 async def remember_desired_time(time_hhmm: str) -> Payload[dict[str, str]]:
     """
     Описание результата.

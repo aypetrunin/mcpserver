@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -19,9 +18,10 @@ from src.crm._crm_result import Payload, err, ok
 
 from ..crm.crm_record_time import record_time_async  # type: ignore
 from ..postgres.postgres_util import read_secondary_article_by_primary  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_record_time = FastMCP(name="record_time")
 
@@ -46,6 +46,7 @@ tool_record_time = FastMCP(name="record_time")
         "- Payload[dict]\n"
     ),
 )
+@with_tracing
 async def record_time(
     session_id: str,
     office_id: str,

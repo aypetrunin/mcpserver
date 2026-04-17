@@ -24,7 +24,6 @@ CRM-слой выполняет:
 from __future__ import annotations
 
 import asyncio
-import logging
 import textwrap
 from typing import Any
 
@@ -36,9 +35,10 @@ from src.crm._crm_result import Payload, err, ok
 from ..crm.crm_avaliable_time_for_master_list import (
     avaliable_time_for_master_list_async,  # type: ignore
 )
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 class MCPAvailableTimeForMasterList:
@@ -128,6 +128,7 @@ class MCPAvailableTimeForMasterList:
             name="avaliable_time_for_master_list",
             description=self.description,
         )
+        @with_tracing
         async def avaliable_time_for_master_list(
             date: str,
             product_id: list[str],

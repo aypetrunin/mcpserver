@@ -31,7 +31,6 @@ avaliable_time_for_master_async(...). Для этого сюда прокиды�
 from __future__ import annotations
 
 import asyncio
-import logging
 import textwrap
 import time
 from typing import Any
@@ -46,9 +45,10 @@ from ..crm.crm_avaliable_time_for_master import (
     avaliable_time_for_master_async,  # type: ignore
 )
 from ..postgres.postgres_util import read_secondary_article_by_primary  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 class MCPAvailableTimeForMaster:
@@ -134,6 +134,7 @@ class MCPAvailableTimeForMaster:
             name="avaliable_time_for_master",
             description=self.description,
         )
+        @with_tracing
         async def avaliable_time_for_master(
             session_id: str,
             office_id: str,

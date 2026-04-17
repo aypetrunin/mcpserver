@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -15,9 +14,10 @@ from fastmcp import FastMCP
 from src.crm._crm_result import Payload, err
 
 from ..crm.crm_delete_client_record import delete_client_record  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_record_delete = FastMCP(name="record_delete")
 
@@ -48,6 +48,7 @@ tool_record_delete = FastMCP(name="record_delete")
         "- err(code, error)\n"
     ),
 )
+@with_tracing
 async def delete_records(
     user_companychat: str,
     office_id: str,

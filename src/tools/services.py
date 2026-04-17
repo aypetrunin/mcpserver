@@ -6,7 +6,6 @@ Informational tool: retrieval-only.
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -15,9 +14,10 @@ from src.crm._crm_result import Payload, ok
 
 from ..qdrant.collections import services_collection
 from ..qdrant.retriever_faq_services import retriever_hybrid_async  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_services = FastMCP(name="services")
 
@@ -36,6 +36,7 @@ tool_services = FastMCP(name="services")
         "- Payload[list[dict]]: Список найденных услуг или пустой список.\n"
     ),
 )
+@with_tracing
 async def services(
     query: str,
     channel_id: str,

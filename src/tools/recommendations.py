@@ -9,7 +9,6 @@ Query-tool: выполняет поиск в Qdrant по названию усл
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -18,9 +17,10 @@ from src.crm._crm_result import Payload, err, ok
 
 from ..qdrant.collections import services_collection
 from ..qdrant.retriever_faq_services import retriever_hybrid_async  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_recommendations = FastMCP(name="recommendations")
 
@@ -39,6 +39,7 @@ tool_recommendations = FastMCP(name="recommendations")
         "- Payload[list[dict]]: services_name, description, pre_session_instructions.\n"
     ),
 )
+@with_tracing
 async def recommendations(
     session_id: str,
     product_name: str,

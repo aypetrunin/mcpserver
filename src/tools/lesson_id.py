@@ -11,6 +11,8 @@ from fastmcp import FastMCP
 
 from src.crm._crm_result import Payload, err, ok
 
+from ..zena_logging import with_tracing
+
 
 tool_remember_lesson_id = FastMCP(name="remember_lesson_id")
 
@@ -34,6 +36,7 @@ tool_remember_lesson_id = FastMCP(name="remember_lesson_id")
         "- Payload[dict]\n"
     ),
 )
+@with_tracing
 async def remember_lesson_id(
     phone: str,
     channel_id: str,

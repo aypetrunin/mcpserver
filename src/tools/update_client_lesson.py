@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-import logging
 
 from fastmcp import FastMCP
 
 from src.crm._crm_result import Payload, err
 
 from ..crm.crm_update_client_lesson import go_update_client_lesson  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_update_client_lesson = FastMCP(name="update_client_lesson")
 
@@ -42,6 +42,7 @@ tool_update_client_lesson = FastMCP(name="update_client_lesson")
         "- Payload[str]\n"
     ),
 )
+@with_tracing
 async def update_client_lesson_go(
     phone: str,
     channel_id: str,

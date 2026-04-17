@@ -9,6 +9,8 @@ from fastmcp import FastMCP
 
 from src.crm._crm_result import Payload, err, ok
 
+from ..zena_logging import with_tracing
+
 
 tool_remember_master = FastMCP(name="remember_master")
 
@@ -29,6 +31,7 @@ tool_remember_master = FastMCP(name="remember_master")
         '   Вход: {"master_id": "546758", "master_name": "Николаева Марина"}\n'
     ),
 )
+@with_tracing
 async def remember_master(
     master_id: str,
     master_name: str,

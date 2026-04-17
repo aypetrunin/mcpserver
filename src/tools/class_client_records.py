@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import logging
 import textwrap
 from typing import Any
 
@@ -16,9 +15,10 @@ from fastmcp.tools import FunctionTool
 from src.crm._crm_result import Payload, err, ok
 
 from ..crm.crm_get_client_records import get_client_records  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 class MCPClientRecords:
@@ -93,6 +93,7 @@ class MCPClientRecords:
             name="records",
             description=self.description,
         )
+        @with_tracing
         async def records(user_companychat: str) -> Payload[list[Any]]:
             # 1) Валидация аргумента
             try:

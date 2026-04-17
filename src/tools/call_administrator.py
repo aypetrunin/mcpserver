@@ -7,7 +7,6 @@ Action-tool: эскалация диалога и вызов администр�
 from __future__ import annotations
 
 import asyncio
-import logging
 
 from fastmcp import FastMCP
 
@@ -16,9 +15,10 @@ from src.crm._crm_result import Payload, err
 from ..request.httpservice_call_administrator import (
     httpservice_call_administrator,  # type: ignore
 )
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_call_administrator = FastMCP(name="call_administrator")
 
@@ -43,6 +43,7 @@ tool_call_administrator = FastMCP(name="call_administrator")
         "- Payload[str]\n"
     ),
 )
+@with_tracing
 async def call_administrator(
     user_companychat: str,
     user_id: str,

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -18,9 +17,10 @@ from fastmcp import FastMCP
 from src.crm._crm_result import Payload, err, ok
 
 from ..crm.crm_reschedule_client_record import reschedule_client_record  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_record_reschedule = FastMCP(name="record_reschedule")
 
@@ -54,6 +54,7 @@ tool_record_reschedule = FastMCP(name="record_reschedule")
         "- Payload[dict]\n"
     ),
 )
+@with_tracing
 async def reschedule_record(
     user_companychat: str,
     office_id: str,

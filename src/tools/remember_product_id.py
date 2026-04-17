@@ -6,16 +6,16 @@ State-tool: подтверждает выбор одной услуги и (оп
 from __future__ import annotations
 
 import asyncio
-import logging
 
 from fastmcp import FastMCP
 
 from src.crm._crm_result import Payload, err, ok
 
 from ..postgres.postgres_util import get_product_name_for_id  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_remember_product_id = FastMCP(name="remember_product_id")
 
@@ -36,6 +36,7 @@ tool_remember_product_id = FastMCP(name="remember_product_id")
         "- Payload[list[dict]]\n"
     ),
 )
+@with_tracing
 async def remember_product_id(
     session_id: str,
     product_id: str,

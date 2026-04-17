@@ -11,6 +11,8 @@ from fastmcp import FastMCP
 
 from src.crm._crm_result import Payload, err, ok
 
+from ..zena_logging import with_tracing
+
 
 tool_remember_desired_date = FastMCP(name="remember_desired_date")
 
@@ -30,6 +32,7 @@ tool_remember_desired_date = FastMCP(name="remember_desired_date")
         '   Вход: {"date_iso": "2026-01-09"}\n'
     ),
 )
+@with_tracing
 async def remember_desired_date(date_iso: str) -> Payload[dict[str, str]]:
     """
     Описание результата.

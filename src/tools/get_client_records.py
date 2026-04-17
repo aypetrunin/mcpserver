@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -16,9 +15,10 @@ from fastmcp import FastMCP
 from src.crm._crm_result import Payload, err
 
 from ..crm.crm_get_client_records import get_client_records  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 tool_records = FastMCP(name="records")
 
@@ -42,6 +42,7 @@ tool_records = FastMCP(name="records")
         "- Payload[list[dict]]\n"
     ),
 )
+@with_tracing
 async def records(
     user_companychat: str,
     channel_id: str,

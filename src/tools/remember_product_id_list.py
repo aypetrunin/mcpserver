@@ -9,6 +9,8 @@ from fastmcp import FastMCP
 
 from src.crm._crm_result import Payload, err, ok
 
+from ..zena_logging import with_tracing
+
 
 tool_remember_product_id_list = FastMCP(name="remember_product_id_list")
 
@@ -29,6 +31,7 @@ tool_remember_product_id_list = FastMCP(name="remember_product_id_list")
         "- Payload[list[dict]]\n"
     ),
 )
+@with_tracing
 async def remember_product_id(
     session_id: str,
     product_id: list[str],

@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from fastmcp import FastMCP
@@ -17,9 +16,10 @@ from fastmcp.tools import FunctionTool
 from src.crm._crm_result import Payload, err, ok
 
 from ..qdrant.retriever_product import retriever_product_hybrid_async  # type: ignore
+from ..zena_logging import get_logger, with_tracing
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 class MCPSearchProductQuery:
@@ -89,6 +89,7 @@ class MCPSearchProductQuery:
             name="product_search",
             description=self.description,
         )
+        @with_tracing
         async def product_search(
             session_id: str,
             query: str,

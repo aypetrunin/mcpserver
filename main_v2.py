@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 import os
 import signal
 from typing import Awaitable, Callable
@@ -27,19 +26,12 @@ from src.postgres.db_pool import init_pg_pool, close_pg_pool
 from src.clients import init_clients, close_clients
 from src.runtime import init_runtime
 from src.settings import get_settings
+from src.zena_logging import setup_logging, get_logger
 
 # --------------------------------------------------------------------------
 # ЛОГИРОВАНИЕ
 # --------------------------------------------------------------------------
-logger = logging.getLogger("mcpserver")
-
-
-def setup_logging() -> None:
-    level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+logger = get_logger()
 
 
 # --------------------------------------------------------------------------

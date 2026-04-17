@@ -51,7 +51,6 @@ httpservice.ai2b.pro.
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 import httpx
@@ -65,9 +64,10 @@ from src.crm._crm_result import (
 )  # поправь путь, если модуль лежит иначе
 from src.http_retry import CRM_HTTP_RETRY
 from src.settings import get_settings
+from src.zena_logging import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 HISTORY_OUTGOING_PATH = "/v1/telegram/n8n/outgoing"
 
@@ -141,7 +141,7 @@ async def httpservice_call_administrator(
     - ok("Администратор вызван.") при успехе
     - err(code=..., error="...") при ошибке
     """
-    logger.info("httpservice_call_administrator")
+    logger.info("httpservice.call_administrator.started")
 
     payload: HttpServiceAdministratorPayload = {
         "user_id": user_id,
@@ -172,24 +172,23 @@ async def httpservice_call_administrator(
         status = exc.response.status_code
         body_snippet = (exc.response.text or "")[:500]
 
-        # детали оставляем в логах (контракт err не содержит details)
         logger.warning(
-            "httpservice http error status=%s body=%s",
-            status,
-            body_snippet,
+            "httpservice.http_error",
+            status=status,
+            body=body_snippet,
         )
         return err(
             code=_code_from_status(status), error=f"HTTP {status} from httpservice"
         )
 
     except httpx.RequestError as exc:
-        logger.warning("httpservice request error: %s", exc)
+        logger.warning("httpservice.request_error", error=str(exc))
         return err(
             code="network_error", error="Network error while calling httpservice"
         )
 
     except Exception as exc:
-        logger.exception("unexpected error in httpservice_call_administrator: %s", exc)
+        logger.exception("httpservice.unexpected_error", error=str(exc))
         return err(code="internal_error", error="Unexpected error")
 
 

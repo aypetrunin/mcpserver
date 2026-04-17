@@ -11,7 +11,6 @@ URL и настройки вычисляются лениво при выпол�
 from __future__ import annotations
 
 from datetime import datetime
-import logging
 from typing import Any
 
 import httpx
@@ -20,10 +19,11 @@ from typing_extensions import TypedDict
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
+from ..zena_logging import get_logger
 from ._crm_result import Payload, err, ok
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 CLIENT_RECORDS_PATH = "/appointments/client/records"
 
@@ -87,23 +87,37 @@ async def get_client_records(
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
         logger.warning(
-            "http error status=%s body=%s",
-            status,
-            (e.response.text or "")[:500],
+            "crm.http_error",
+            operation="get_client_records",
+            status=status,
+            body=(e.response.text or "")[:500],
         )
         return err(code=_code_from_status(status), error=f"HTTP {status} from CRM")
 
     except httpx.RequestError as e:
-        logger.warning("request error: %s", e)
+        logger.warning(
+            "crm.request_error",
+            operation="get_client_records",
+            error=str(e),
+        )
         return err(code="network_error", error="Network error while calling CRM")
 
     except ValueError as e:
-        # ValueError — это про парсинг/валидацию ответа CRM (битый JSON/тип)
-        logger.error("bad response payload=%s: %s", payload, e)
+        logger.error(
+            "crm.bad_response",
+            operation="get_client_records",
+            payload=payload,
+            error=str(e),
+        )
         return err(code="invalid_response", error="Invalid response from CRM")
 
     except Exception as e:
-        logger.exception("unexpected error payload=%s: %s", payload, e)
+        logger.exception(
+            "crm.unexpected_error",
+            operation="get_client_records",
+            payload=payload,
+            error=str(e),
+        )
         return err(code="internal_error", error="Unexpected error")
 
 

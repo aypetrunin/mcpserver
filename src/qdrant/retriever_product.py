@@ -12,13 +12,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterable
-import logging
 from typing import Any
 
 from qdrant_client import models
 from qdrant_client.models import PointStruct, ScoredPoint
 
 from .collections import products_collection
+from ..zena_logging import get_logger
 from .retriever_common import (
     ada_embeddings,
     get_bm25_model,
@@ -27,7 +27,7 @@ from .retriever_common import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 DEFAULT_LIMIT = 5
 HYBRID_LIMIT = 12
@@ -264,11 +264,11 @@ async def retriever_product_hybrid_async(
     limit = _sanitize_limit(limit, HYBRID_LIMIT)
 
     logger.debug(
-        "retriever_product_hybrid_async channel_id=%s query=%s limit=%s filter=%s",
-        channel_id,
-        (query[:80] + "...") if query and len(query) > 80 else query,
-        limit,
-        query_filter,
+        "retriever.product_hybrid",
+        channel_id=channel_id,
+        query=(query[:80] + "...") if query and len(query) > 80 else query,
+        limit=limit,
+        filter=str(query_filter),
     )
 
     async def _logic() -> list[dict[str, Any]]:
@@ -408,7 +408,7 @@ if __name__ == "__main__":
             channel_id=2,
             query="массаж",
         )
-        logger.info("Результаты: %s элементов", len(results))
+        logger.info("retriever.results", count=len(results))
 
     asyncio.run(main())
 

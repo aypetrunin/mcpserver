@@ -36,12 +36,12 @@
 Важная идея: клиент создаётся "на весь процесс" и переиспользуется.
 """
 
-import logging
-
 import httpx
 
+from .zena_logging import get_logger
 
-logger = logging.getLogger(__name__)
+
+logger = get_logger()
 
 _http: httpx.AsyncClient | None = None
 

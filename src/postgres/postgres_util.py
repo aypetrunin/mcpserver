@@ -13,16 +13,16 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from typing import Any
 
 from asyncpg import Record
 
+from ..zena_logging import get_logger
 from .db_pool import get_pg_pool
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 PG_QUERY_TIMEOUT_S = float(os.getenv("PG_QUERY_TIMEOUT_S", "5"))
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable, Iterable, Iterator
-import logging
 import random
 from typing import Any, TypeVar
 
@@ -15,11 +14,12 @@ from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.http.models import TextIndexType
 
 from src.settings import get_settings
+from src.zena_logging import get_logger
 
 
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 _openai_http: httpx.AsyncClient | None = None
 _openai_client: AsyncOpenAI | None = None
@@ -100,15 +100,19 @@ async def retry_request(
             return await func(*args, **kwargs)
         except Exception as exc:
             if attempt == retries:
-                logger.exception("Последняя попытка %s: %s", func.__name__, exc)
+                logger.exception(
+                    "retry.exhausted",
+                    func=func.__name__,
+                    error=str(exc),
+                )
                 raise
             wait = backoff**attempt + random.uniform(0, 1)
             logger.warning(
-                "Ошибка %s: %s | %s/%s",
-                func.__name__,
-                exc,
-                attempt,
-                retries,
+                "retry.attempt",
+                func=func.__name__,
+                error=str(exc),
+                attempt=attempt,
+                max_retries=retries,
             )
             await asyncio.sleep(wait)
 
@@ -157,10 +161,10 @@ async def reset_collection(
     """Удаляет и создаёт коллекцию в Qdrant; при необходимости создаёт payload-индексы."""
     try:
         await client.delete_collection(collection_name)
-        logger.info('Коллекция "%s" удалена.', collection_name)
+        logger.info("qdrant.collection_deleted", collection=collection_name)
     except Exception:
         logger.warning(
-            'Коллекция "%s" не найдена или ошибка удаления.', collection_name
+            "qdrant.collection_delete_failed", collection=collection_name
         )
 
     await client.create_collection(
@@ -185,7 +189,7 @@ async def reset_collection(
             ),
         },
     )
-    logger.info('Коллекция "%s" создана.', collection_name)
+    logger.info("qdrant.collection_created", collection=collection_name)
 
     if text_index_fields:
         for field in text_index_fields:
@@ -200,7 +204,7 @@ async def reset_collection(
                     lowercase=True,
                 ),
             )
-            logger.info('Индекс "%s" создан.', field)
+            logger.info("qdrant.index_created", field=field)
 
 
 # """Модуль общих функций для retriever_faq_services, retriever_product."""

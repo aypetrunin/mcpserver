@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import httpx
@@ -15,10 +14,11 @@ import httpx
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
+from ..zena_logging import get_logger
 from ._crm_result import Payload, err, ok
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 CREATE_CLIENT_PATH = "/appointments/go_crm/create_client"
 
@@ -30,7 +30,7 @@ def _validate_nonempty_str(value: Any) -> bool:
 
 def _input_error(param_name: str, value: Any) -> Payload[Any]:
     """Fail-fast ошибка валидации входных данных (единый контракт)."""
-    logger.warning("go_update_client_info invalid param '%s': %r", param_name, value)
+    logger.warning("validation_error", operation="update_client_info", param=param_name, value=value)
     return err(
         code="validation_error",
         error=f"Поле '{param_name}' не задано или имеет неверный формат.",
@@ -114,9 +114,10 @@ async def go_update_client_info(
 
     except httpx.HTTPStatusError as e:
         logger.warning(
-            "go_update_client_info http error status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
+            "crm.http_error",
+            operation="update_client_info",
+            status=e.response.status_code,
+            body=e.response.text[:500],
         )
         return err(
             code="crm_http_error",
@@ -124,14 +125,23 @@ async def go_update_client_info(
         )
 
     except httpx.RequestError as e:
-        logger.warning("go_update_client_info request error payload=%s: %s", payload, e)
+        logger.warning(
+            "crm.request_error",
+            operation="update_client_info",
+            payload=payload,
+            error=str(e),
+        )
         return err(
             code="crm_network_error",
             error="Сетевая ошибка при обращении к GO CRM. Обратитесь к администратору.",
         )
 
     except ValueError:
-        logger.exception("go_update_client_info invalid json payload=%s", payload)
+        logger.exception(
+            "crm.invalid_json",
+            operation="update_client_info",
+            payload=payload,
+        )
         return err(
             code="invalid_response",
             error="GO CRM вернул некорректный ответ. Обратитесь к администратору.",
@@ -139,7 +149,10 @@ async def go_update_client_info(
 
     except Exception as e:
         logger.exception(
-            "go_update_client_info unexpected error payload=%s: %s", payload, e
+            "crm.unexpected_error",
+            operation="update_client_info",
+            payload=payload,
+            error=str(e),
         )
         return err(
             code="unexpected_error",

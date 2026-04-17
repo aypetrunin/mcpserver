@@ -2,17 +2,14 @@
 
 import asyncio
 import importlib
-import logging
 
 from src.runtime import init_runtime
+from src.zena_logging import get_logger, setup_logging
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+setup_logging()
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 async def test_crm_get_client_records() -> None:

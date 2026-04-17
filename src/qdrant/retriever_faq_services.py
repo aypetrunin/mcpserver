@@ -8,12 +8,12 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from qdrant_client import models
 
 from .collections import database_fields
+from ..zena_logging import get_logger
 from .retriever_common import (
     ada_embeddings,
     get_bm25_model,
@@ -22,7 +22,7 @@ from .retriever_common import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 def points_to_dict(

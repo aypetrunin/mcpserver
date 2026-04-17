@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import httpx
@@ -10,10 +9,11 @@ from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
+from ..zena_logging import get_logger
 from ._crm_http import crm_timeout_s, crm_url
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 CREATE_BOOKING_PATH = "/appointments/yclients/create_booking"
 
@@ -62,10 +62,10 @@ async def record_time_async(
 
     requested_datetime = f"{date} {time}"
     logger.info(
-        "Подготовка бронирования service_id=%s at %s (staff_id=%s)",
-        product_id,
-        requested_datetime,
-        staff_id,
+        "booking.preparing",
+        service_id=product_id,
+        datetime=requested_datetime,
+        staff_id=staff_id,
     )
 
     effective_timeout = crm_timeout_s(timeout)
@@ -82,10 +82,9 @@ async def record_time_async(
             and resp_json.get("error") == "Неожиданный код статуса: 400"
         ):
             logger.info(
-                "Ошибка API при бронировании (400), считаем запись успешной. "
-                "payload=%s response=%s",
-                payload,
-                resp_json,
+                "booking.assumed_success_on_400",
+                payload=payload,
+                response=resp_json,
             )
             return {
                 "success": True,
@@ -93,34 +92,42 @@ async def record_time_async(
             }
 
         logger.info(
-            "Бронирование успешно выполнено user_id=%s service_id=%s",
-            user_id,
-            product_id,
+            "booking.completed",
+            user_id=user_id,
+            service_id=product_id,
         )
         return resp_json
 
     except httpx.HTTPStatusError as e:
         logger.error(
-            "Ошибка HTTP %d при бронировании service_id=%s: %s",
-            e.response.status_code,
-            product_id,
-            e,
+            "booking.http_error",
+            status=e.response.status_code,
+            service_id=product_id,
+            error=str(e),
         )
         return {"success": False, "error": f"HTTP ошибка: {e.response.status_code}"}
 
     except httpx.RequestError as e:
-        logger.error("Сетевая ошибка при бронировании service_id=%s: %s", product_id, e)
+        logger.error(
+            "booking.request_error",
+            service_id=product_id,
+            error=str(e),
+        )
         return {"success": False, "error": "network_error"}
 
     except ValueError as e:
         logger.error(
-            "Некорректный ответ CRM при бронировании service_id=%s: %s", product_id, e
+            "booking.invalid_response",
+            service_id=product_id,
+            error=str(e),
         )
         return {"success": False, "error": "invalid_response"}
 
     except Exception as e:
         logger.exception(
-            "Неожиданная ошибка при бронировании service_id=%s: %s", product_id, e
+            "booking.unexpected_error",
+            service_id=product_id,
+            error=str(e),
         )
         return {"success": False, "error": "Неизвестная ошибка при записи"}
 

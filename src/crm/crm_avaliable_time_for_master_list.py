@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 from datetime import date as date_type, datetime
-import logging
 from typing import Any
 
 import httpx
@@ -24,10 +23,11 @@ import httpx
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ..timezone_utils import now_local, parse_slot
+from ..zena_logging import get_logger
 from ._crm_http import crm_timeout_s, crm_url
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 DT_FMT_DATE = "%Y-%m-%d"
 DT_FMT_SLOT = "%Y-%m-%d %H:%M"
@@ -215,19 +215,25 @@ async def avaliable_time_for_master_list_async(
         resp_json = await _fetch_product(payload=payload, timeout_s=effective_timeout)
     except httpx.HTTPStatusError as e:
         logger.warning(
-            "avaliable_time_for_master_list HTTP status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
+            "crm.http_error",
+            operation="avaliable_time_for_master_list",
+            status=e.response.status_code,
+            body=e.response.text[:500],
         )
         return [], []
     except httpx.RequestError as e:
-        logger.warning("avaliable_time_for_master_list request error: %s", e)
+        logger.warning(
+            "crm.request_error",
+            operation="avaliable_time_for_master_list",
+            error=str(e),
+        )
         return [], []
     except Exception as e:
         logger.exception(
-            "avaliable_time_for_master_list unexpected error payload=%s: %s",
-            payload,
-            e,
+            "crm.unexpected_error",
+            operation="avaliable_time_for_master_list",
+            payload=payload,
+            error=str(e),
         )
         return [], []
 

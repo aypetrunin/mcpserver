@@ -5,7 +5,6 @@ URL и настройки вычисляются лениво при выпол�
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Literal, cast
 
 import httpx
@@ -13,10 +12,11 @@ from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
+from ..zena_logging import get_logger
 from ._crm_http import crm_timeout_s, crm_url
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 GET_RECORDS_PATH = "/appointments/go_crm/get_records"
 
@@ -50,7 +50,7 @@ ResponsePayload = ErrorResponse | SuccessResponse
 
 def _log_and_build_input_error(param_name: str, value: Any) -> ErrorResponse:
     """Логирует и возвращает ошибку валидации входных данных."""
-    logger.warning("Не указан или неверный тип '%s': %r", param_name, value)
+    logger.warning("validation_error", param=param_name, value=value)
     return ErrorResponse(
         success=False,
         error="Ошибка в типах входных данных. Проверь и перезапусти инструмент.",
@@ -104,9 +104,10 @@ async def go_get_client_lessons(
 
     except httpx.HTTPStatusError as e:
         logger.warning(
-            "http error status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
+            "crm.http_error",
+            operation="get_client_lessons",
+            status=e.response.status_code,
+            body=e.response.text[:500],
         )
         return ErrorResponse(
             success=False,
@@ -114,24 +115,43 @@ async def go_get_client_lessons(
         )
 
     except httpx.RequestError as e:
-        logger.warning("request error payload=%s: %s", payload, e)
+        logger.warning(
+            "crm.request_error",
+            operation="get_client_lessons",
+            payload=payload,
+            error=str(e),
+        )
         return ErrorResponse(
             success=False, error="Сетевая ошибка при обращении к GO CRM."
         )
 
     except ValueError:
-        logger.exception("invalid json payload=%s", payload)
+        logger.exception(
+            "crm.invalid_json",
+            operation="get_client_lessons",
+            payload=payload,
+        )
         return ErrorResponse(success=False, error="GO CRM вернул некорректный ответ.")
 
     except Exception as e:
-        logger.exception("unexpected error payload=%s: %s", payload, e)
+        logger.exception(
+            "crm.unexpected_error",
+            operation="get_client_lessons",
+            payload=payload,
+            error=str(e),
+        )
         return ErrorResponse(
             success=False, error="Неизвестная ошибка при обращении к GO CRM."
         )
 
     if resp_json.get("success") is not True:
+        logger.warning(
+            "crm.no_data",
+            operation="get_client_lessons",
+            channel_id=channel_id,
+            phone=phone,
+        )
         msg = f"Нет данных в системе для channel_id={channel_id}, phone={phone}"
-        logger.warning("%s", msg)
         return ErrorResponse(success=False, error=msg)
 
     lessons_raw = resp_json.get("lessons") or []

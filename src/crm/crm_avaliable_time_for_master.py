@@ -33,7 +33,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date as date_type, datetime
-import logging
 from typing import Any
 
 import httpx
@@ -41,10 +40,11 @@ import httpx
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ..timezone_utils import now_local, parse_slot
+from ..zena_logging import get_logger
 from ._crm_http import crm_timeout_s, crm_url
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 DT_FMT_DATE = "%Y-%m-%d"
 DT_FMT_SLOT = "%Y-%m-%d %H:%M"
@@ -117,16 +117,16 @@ async def avaliable_time_for_master_async(
 ) -> list[dict[str, Any]]:
     """Возвращает свободные слоты по мастерам."""
     if not isinstance(service_id, str) or not service_id.strip():
-        logger.warning("Неверный service_id=%r", service_id)
+        logger.warning("invalid_service_id", service_id=service_id)
         return []
 
     if not isinstance(server_name, str) or not server_name.strip():
-        logger.warning("Неверный server_name=%r", server_name)
+        logger.warning("invalid_server_name", server_name=server_name)
         return []
 
     d = _parse_date(date)
     if d is None:
-        logger.warning("Неверный формат date=%r (ожидается YYYY-MM-DD)", date)
+        logger.warning("invalid_date_format", date=date, expected="YYYY-MM-DD")
         return [
             {
                 "success": False,
@@ -154,19 +154,25 @@ async def avaliable_time_for_master_async(
         resp_json = await _fetch_product(payload=payload, timeout_s=effective_timeout)
     except httpx.HTTPStatusError as e:
         logger.warning(
-            "avaliable_time_for_master HTTP status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
+            "crm.http_error",
+            operation="avaliable_time_for_master",
+            status=e.response.status_code,
+            body=e.response.text[:500],
         )
         return []
     except httpx.RequestError as e:
-        logger.warning("avaliable_time_for_master request error: %s", e)
+        logger.warning(
+            "crm.request_error",
+            operation="avaliable_time_for_master",
+            error=str(e),
+        )
         return []
     except Exception as e:
         logger.exception(
-            "avaliable_time_for_master unexpected error payload=%s: %s",
-            payload,
-            e,
+            "crm.unexpected_error",
+            operation="avaliable_time_for_master",
+            payload=payload,
+            error=str(e),
         )
         return []
 

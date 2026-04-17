@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any, cast
 
 import httpx
@@ -10,10 +9,11 @@ from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
+from ..zena_logging import get_logger
 from ._crm_http import crm_timeout_s, crm_url
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 RESCHEDULE_PATH = "/appointments/client/records/reschedule"
 
@@ -63,20 +63,25 @@ async def reschedule_client_record(
         "comment": comment,
     }
 
-    logger.info("Подготовка переноса записи payload=%s", payload)
+    logger.info("reschedule.preparing", payload=payload)
 
     try:
         resp_json = await _reschedule_payload(
             url=url, payload=payload, timeout_s=effective_timeout
         )
-        logger.info("Перенос записи успешно выполнен payload=%s", payload)
+        logger.info("reschedule.completed", payload=payload)
         return cast(RescheduleClientRecordResponse, resp_json)
 
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
         body = e.response.text
 
-        logger.error("CRM HTTP %d payload=%s body=%s", status, payload, body[:800])
+        logger.error(
+            "reschedule.http_error",
+            status=status,
+            payload=payload,
+            body=body[:800],
+        )
         return {
             "success": False,
             "error": f"HTTP ошибка: {status}",
@@ -84,15 +89,27 @@ async def reschedule_client_record(
         }
 
     except httpx.RequestError as e:
-        logger.error("Сетевая ошибка при переносе payload=%s: %s", payload, e)
+        logger.error(
+            "reschedule.request_error",
+            payload=payload,
+            error=str(e),
+        )
         return {"success": False, "error": "network_error", "details": str(e)[:800]}
 
     except ValueError as e:
-        logger.error("Некорректный ответ CRM при переносе payload=%s: %s", payload, e)
+        logger.error(
+            "reschedule.invalid_response",
+            payload=payload,
+            error=str(e),
+        )
         return {"success": False, "error": "invalid_response", "details": str(e)[:800]}
 
     except Exception as e:
-        logger.exception("Неожиданная ошибка при переносе payload=%s: %s", payload, e)
+        logger.exception(
+            "reschedule.unexpected_error",
+            payload=payload,
+            error=str(e),
+        )
         return {"success": False, "error": "unknown_error"}
 
 

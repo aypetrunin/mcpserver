@@ -5,7 +5,6 @@ URL и настройки вычисляются лениво при выпол�
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Literal, cast
 
 import httpx
@@ -14,10 +13,11 @@ from typing_extensions import TypedDict
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
+from ..zena_logging import get_logger
 from ._crm_result import Payload, err, ok
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 MASTERS_PATH = "/appointments/yclients/staff/actual"
 
@@ -69,30 +69,38 @@ async def get_masters(channel_id: int, timeout: float = 0.0) -> Payload[list[Mas
 
     except httpx.HTTPStatusError as e:
         logger.error(
-            "HTTP %s при получении мастеров channel_id=%s body=%s",
-            e.response.status_code,
-            channel_id,
-            e.response.text[:500],
+            "crm.http_error",
+            operation="get_masters",
+            status=e.response.status_code,
+            channel_id=channel_id,
+            body=e.response.text[:500],
         )
         return err(code="http_error", error=f"CRM вернул HTTP {e.response.status_code}")
 
     except httpx.RequestError as e:
         logger.warning(
-            "Сетевая ошибка при получении мастеров channel_id=%s: %s",
-            channel_id,
-            e,
+            "crm.request_error",
+            operation="get_masters",
+            channel_id=channel_id,
+            error=str(e),
         )
         return err(
             code="network_error", error="Сетевая ошибка при получении списка мастеров"
         )
 
     except ValueError:
-        logger.exception("CRM вернул некорректный JSON channel_id=%s", channel_id)
+        logger.exception(
+            "crm.invalid_json",
+            operation="get_masters",
+            channel_id=channel_id,
+        )
         return err(code="crm_bad_response", error="CRM вернул некорректный JSON")
 
     except Exception:
         logger.exception(
-            "Неожиданная ошибка при получении мастеров channel_id=%s", channel_id
+            "crm.unexpected_error",
+            operation="get_masters",
+            channel_id=channel_id,
         )
         return err(
             code="unexpected_error",

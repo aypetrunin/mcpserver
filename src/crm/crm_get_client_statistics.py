@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-import logging
 import re
 from typing import Any, Literal
 
@@ -13,10 +12,11 @@ from typing_extensions import TypedDict
 
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
+from ..zena_logging import get_logger
 from ._crm_http import crm_timeout_s, crm_url
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 CLIENT_INFO_PATH = "/appointments/go_crm/client_info"
 
@@ -83,29 +83,45 @@ async def go_get_client_statisics(
 
     except httpx.HTTPStatusError as e:
         logger.warning(
-            "http error status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
+            "crm.http_error",
+            operation="get_client_statistics",
+            status=e.response.status_code,
+            body=e.response.text[:500],
         )
         return {"success": False, "error": fallback_err}
 
     except httpx.RequestError as e:
-        logger.warning("request error payload=%s: %s", payload, e)
+        logger.warning(
+            "crm.request_error",
+            operation="get_client_statistics",
+            payload=payload,
+            error=str(e),
+        )
         return {"success": False, "error": fallback_err}
 
     except ValueError:
-        logger.exception("invalid json payload=%s", payload)
+        logger.exception(
+            "crm.invalid_json",
+            operation="get_client_statistics",
+            payload=payload,
+        )
         return {"success": False, "error": fallback_err}
 
     except Exception as e:
-        logger.exception("unexpected error payload=%s: %s", payload, e)
+        logger.exception(
+            "crm.unexpected_error",
+            operation="get_client_statistics",
+            payload=payload,
+            error=str(e),
+        )
         return {"success": False, "error": fallback_err}
 
     if resp_json.get("success") is not True:
         logger.warning(
-            "no data for channel_id=%s phone=%s",
-            channel_id,
-            phone,
+            "crm.no_data",
+            operation="get_client_statistics",
+            channel_id=channel_id,
+            phone=phone,
         )
         return {"success": False, "error": fallback_err}
 

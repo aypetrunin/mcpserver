@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import lru_cache
-import logging
 from typing import Any, TypeVar, cast
 
 import httpx
@@ -21,9 +20,10 @@ from tenacity import (
 )
 
 from src.settings import get_settings
+from src.zena_logging import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -49,11 +49,11 @@ def _get_crm_retry_decorator() -> Callable[[F], F]:
         """Логирует паузу перед повторной попыткой."""
         exc = rs.outcome.exception()
         logger.warning(
-            "HTTP retry: %r | attempt=%s/%s sleep=%.1fs",
-            exc,
-            rs.attempt_number,
-            s.CRM_HTTP_RETRIES,
-            rs.next_action.sleep,
+            "http.retry",
+            error=repr(exc),
+            attempt=rs.attempt_number,
+            max_attempts=s.CRM_HTTP_RETRIES,
+            sleep_sec=round(rs.next_action.sleep, 1),
         )
 
     dec = retry(

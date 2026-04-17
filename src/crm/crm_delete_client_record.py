@@ -9,7 +9,6 @@ URL и настройки читаются лениво при выполнен�
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import httpx
@@ -18,10 +17,11 @@ from typing_extensions import TypedDict
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
+from ..zena_logging import get_logger
 from ._crm_result import Payload, err, ok
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 DELETE_RECORDS_PATH = "/appointments/client/records/delete"
 
@@ -89,25 +89,37 @@ async def delete_client_record(
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
         logger.warning(
-            "crm_delete_client_record http error status=%s body=%s",
-            status,
-            (e.response.text or "")[:500],
+            "crm.http_error",
+            operation="delete_client_record",
+            status=status,
+            body=(e.response.text or "")[:500],
         )
         return err(code=_code_from_status(status), error=f"HTTP {status} from CRM")
 
     except httpx.RequestError as e:
-        logger.warning("crm_delete_client_record request error: %s", e)
+        logger.warning(
+            "crm.request_error",
+            operation="delete_client_record",
+            error=str(e),
+        )
         return err(code="network_error", error="Network error while calling CRM")
 
     except ValueError as e:
-        # Что делаем:
         # ValueError используем только для плохого JSON/не того типа ответа
-        logger.error("crm_delete_client_record bad response payload=%s: %s", payload, e)
+        logger.error(
+            "crm.bad_response",
+            operation="delete_client_record",
+            payload=payload,
+            error=str(e),
+        )
         return err(code="invalid_response", error="Invalid response from CRM")
 
     except Exception as e:
         logger.exception(
-            "crm_delete_client_record unexpected error payload=%s: %s", payload, e
+            "crm.unexpected_error",
+            operation="delete_client_record",
+            payload=payload,
+            error=str(e),
         )
         return err(code="internal_error", error="Unexpected error")
 

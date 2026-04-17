@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-import logging
 from typing import Any
 
 import httpx
@@ -17,11 +16,12 @@ import httpx
 from ..clients import get_http
 from ..http_retry import CRM_HTTP_RETRY
 from ._crm_http import crm_timeout_s, crm_url
+from ..zena_logging import get_logger
 from ._crm_result import Payload, err, ok
 from .crm_get_client_statistics import go_get_client_statisics
 
 
-logger = logging.getLogger(__name__.split(".")[-1])
+logger = get_logger()
 
 RESCHEDULE_PATH = "/appointments/go_crm/reschedule_record"
 
@@ -33,7 +33,7 @@ def _validate_nonempty_str(value: Any) -> bool:
 
 def _input_error(param_name: str, value: Any) -> Payload[Any]:
     """Fail-fast ошибка валидации входных данных."""
-    logger.warning("go_update_client_lesson invalid param '%s': %r", param_name, value)
+    logger.warning("validation_error", operation="update_client_lesson", param=param_name, value=value)
     return err(
         code="validation_error",
         error=f"Поле '{param_name}' не задано или имеет неверный формат.",
@@ -134,7 +134,11 @@ async def go_update_client_lesson(
         raise
     except Exception as exc:
         # это НЕ критично для переноса, но лимит проверить не смогли
-        logger.exception("go_update_client_lesson statistics fetch failed: %s", exc)
+        logger.exception(
+            "crm.statistics_fetch_failed",
+            operation="update_client_lesson",
+            error=str(exc),
+        )
         statistic = {}
 
     if isinstance(statistic, dict) and statistic.get("success") is True:
@@ -153,9 +157,9 @@ async def go_update_client_lesson(
             next_transfer_dt = datetime.strptime(str(next_transfer_after), "%d.%m.%Y")
     except ValueError:
         logger.warning(
-            "Некорректные даты из статистики: end_date=%r next_transfer_after=%r",
-            abonent_end_date,
-            next_transfer_after,
+            "crm.invalid_statistics_dates",
+            end_date=abonent_end_date,
+            next_transfer_after=next_transfer_after,
         )
 
     # Ваша бизнес-логика сохранена:
@@ -168,7 +172,7 @@ async def go_update_client_lesson(
                 "В этом месяце после окончания абонемента у Вас уже было 2 переноса. "
                 f"Вы можете перенести занятие после {next_transfer_dt.strftime('%d.%m.%Y')}."
             )
-            logger.warning("%s", msg)
+            logger.warning("crm.transfer_limit_exceeded", message=msg)
             return err(code="transfer_limit", error=msg)
 
     # ------------------------------------------------------------------
@@ -197,9 +201,10 @@ async def go_update_client_lesson(
 
     except httpx.HTTPStatusError as e:
         logger.warning(
-            "go_update_client_lesson http error status=%s body=%s",
-            e.response.status_code,
-            e.response.text[:500],
+            "crm.http_error",
+            operation="update_client_lesson",
+            status=e.response.status_code,
+            body=e.response.text[:500],
         )
         return err(
             code="crm_http_error",
@@ -208,7 +213,10 @@ async def go_update_client_lesson(
 
     except httpx.RequestError as e:
         logger.warning(
-            "go_update_client_lesson request error payload=%s: %s", payload, e
+            "crm.request_error",
+            operation="update_client_lesson",
+            payload=payload,
+            error=str(e),
         )
         return err(
             code="crm_network_error",
@@ -216,7 +224,11 @@ async def go_update_client_lesson(
         )
 
     except ValueError:
-        logger.exception("go_update_client_lesson invalid json payload=%s", payload)
+        logger.exception(
+            "crm.invalid_json",
+            operation="update_client_lesson",
+            payload=payload,
+        )
         return err(
             code="invalid_response",
             error="GO CRM вернул некорректный ответ. Обратитесь к администратору.",
@@ -224,7 +236,10 @@ async def go_update_client_lesson(
 
     except Exception as e:
         logger.exception(
-            "go_update_client_lesson unexpected error payload=%s: %s", payload, e
+            "crm.unexpected_error",
+            operation="update_client_lesson",
+            payload=payload,
+            error=str(e),
         )
         return err(
             code="unexpected_error",

@@ -119,10 +119,11 @@ async def create_all_views() -> None:
 def _run_cli() -> None:
     """Запуск обновления VIEW из консоли."""
     import asyncio
-    import logging
 
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    from ..zena_logging import get_logger, setup_logging
+
+    setup_logging()
+    logger = get_logger()
 
     async def _demo() -> None:
         init_runtime()

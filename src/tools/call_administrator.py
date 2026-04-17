@@ -49,6 +49,7 @@ async def call_administrator(
     user_id: str,
     reply_to_history_id: str,
     access_token: str,
+    _request_id: str = "",
 ) -> Payload[str]:
     """Вызвать администратора в CRM (fail-fast + единый контракт)."""
     # ------------------------------------------------------------------

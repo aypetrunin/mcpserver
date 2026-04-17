@@ -319,6 +319,7 @@ class MCPSearchProductFull:
             indications: list[str] | None = None,
             contraindications: list[str] | None = None,
             body_parts: list[str] | None = None,
+            _request_id: str = "",
         ) -> Payload[list[dict[str, Any]]]:
             # Валидация
             if not session_id or not str(session_id).strip():

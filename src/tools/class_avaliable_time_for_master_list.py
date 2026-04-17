@@ -133,6 +133,7 @@ class MCPAvailableTimeForMasterList:
             date: str,
             product_id: list[str],
             product_name: list[str],
+            _request_id: str = "",
         ) -> Payload[tuple[list[dict[str, Any]], list[dict[str, Any]]]]:
             """Поиск свободных слотов по мастерам для списка услуг (единый контракт)."""
             # Что делаем: лёгкая валидация user input (tool args) -> err(validation_error).

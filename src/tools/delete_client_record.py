@@ -53,6 +53,7 @@ async def delete_records(
     user_companychat: str,
     office_id: str,
     record_id: str,
+    _request_id: str = "",
 ) -> Payload[Any]:
     """Удалить запись клиента на услугу в CRM."""
     # ------------------------------------------------------------------

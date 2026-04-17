@@ -41,6 +41,7 @@ async def remember_product_id(
     session_id: str,
     product_id: str,
     product_name: str,
+    _request_id: str = "",
 ) -> Payload[list[dict[str, str]]]:
     """
     Описание результата.

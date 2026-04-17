@@ -40,6 +40,7 @@ tool_get_client_lessons = FastMCP(name="get_client_lessons")
 async def get_client_lessons_go(
     phone: str,
     channel_id: str,
+    _request_id: str = "",
 ) -> Payload[Any]:
     """
     Описание результата.

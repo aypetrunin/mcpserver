@@ -46,6 +46,7 @@ async def remember_lesson_id(
     new_time: str,
     service: str,
     reason: str,
+    _request_id: str = "",
 ) -> Payload[dict[str, str]]:
     """
     Описание результата.

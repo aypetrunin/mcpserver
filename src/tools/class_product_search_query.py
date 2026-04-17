@@ -93,6 +93,7 @@ class MCPSearchProductQuery:
         async def product_search(
             session_id: str,
             query: str,
+            _request_id: str = "",
         ) -> Payload[list[dict[str, Any]]]:
             # Валидация
             if not session_id or not str(session_id).strip():

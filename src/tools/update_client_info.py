@@ -52,6 +52,7 @@ async def update_client_info_go(
     child_name: str,
     child_date_of_birth: str,
     contact_reason: str,
+    _request_id: str = "",
 ) -> Payload[str]:
     """Сохранить анкетные данные клиента (fail-fast валидируем, дальше прокидываем в CRM-слой)."""
     # ------------------------------------------------------------------

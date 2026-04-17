@@ -44,6 +44,7 @@ async def recommendations(
     session_id: str,
     product_name: str,
     channel_id: str,
+    _request_id: str = "",
 ) -> Payload[list[dict[str, Any]]]:
     """Получать рекомендации по выбранной услуге через поиск в services."""
     _ = session_id  # если реально не используешь

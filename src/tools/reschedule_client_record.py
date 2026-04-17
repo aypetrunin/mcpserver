@@ -63,6 +63,7 @@ async def reschedule_record(
     time: str,
     master_id: str,
     comment: str | None = None,
+    _request_id: str = "",
 ) -> Payload[Any]:
     """Перенести существующую запись клиента в CRM."""
     # ------------------------------------------------------------------

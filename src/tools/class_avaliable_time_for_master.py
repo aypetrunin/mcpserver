@@ -140,6 +140,7 @@ class MCPAvailableTimeForMaster:
             office_id: str,
             date: str,
             product_id: str,
+            _request_id: str = "",
         ) -> Payload[list[dict[str, Any]]]:
             # trace id для склейки логов одного запроса
             trace_id = uuid.uuid4().hex[:10]

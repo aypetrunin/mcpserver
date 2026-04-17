@@ -94,7 +94,7 @@ class MCPClientRecords:
             description=self.description,
         )
         @with_tracing
-        async def records(user_companychat: str) -> Payload[list[Any]]:
+        async def records(user_companychat: str, _request_id: str = "") -> Payload[list[Any]]:
             # 1) Валидация аргумента
             try:
                 user_id_int = int(user_companychat)

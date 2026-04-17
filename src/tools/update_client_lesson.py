@@ -52,6 +52,7 @@ async def update_client_lesson_go(
     new_time: str,
     service: str,
     reason: str,
+    _request_id: str = "",
 ) -> Payload[str]:
     """Перенести урок клиента (fail-fast + CRM слой возвращает Payload)."""
     # ------------------------------------------------------------------

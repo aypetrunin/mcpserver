@@ -56,6 +56,7 @@ async def record_time(
     product_name: str,
     client_id: int,
     master_id: int = 0,
+    _request_id: str = "",
 ) -> Payload[Any]:
     """Записать клиента на услугу на указанную дату и время."""
     _ = session_id  # сейчас не используется

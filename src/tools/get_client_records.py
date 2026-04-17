@@ -46,6 +46,7 @@ tool_records = FastMCP(name="records")
 async def records(
     user_companychat: str,
     channel_id: str,
+    _request_id: str = "",
 ) -> Payload[list[dict[str, Any]]]:
     """Получить текущие записи клиента на услуги."""
     # ------------------------------------------------------------------

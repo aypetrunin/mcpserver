@@ -33,7 +33,7 @@ tool_remember_desired_time = FastMCP(name="remember_desired_time")
     ),
 )
 @with_tracing
-async def remember_desired_time(time_hhmm: str) -> Payload[dict[str, str]]:
+async def remember_desired_time(time_hhmm: str, _request_id: str = "") -> Payload[dict[str, str]]:
     """
     Описание результата.
 

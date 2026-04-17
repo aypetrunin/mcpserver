@@ -40,6 +40,7 @@ tool_services = FastMCP(name="services")
 async def services(
     query: str,
     channel_id: str,
+    _request_id: str = "",
 ) -> Payload[list[dict[str, Any]]]:
     """Поиск информации по услугам (описание, показания, противопоказания)."""
     try:

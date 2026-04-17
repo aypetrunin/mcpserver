@@ -35,6 +35,7 @@ tool_remember_office = FastMCP(name="remember_office")
 async def remember_office(
     office_id: str,
     office_address: str,
+    _request_id: str = "",
 ) -> Payload[dict[str, str]]:
     """
     Описание результата.

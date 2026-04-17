@@ -40,6 +40,7 @@ tool_get_client_statistics = FastMCP(name="get_client_statistics")
 async def get_client_statistics(
     phone: str,
     channel_id: str,
+    _request_id: str = "",
 ) -> Payload[Any]:
     """
     Описание результата.

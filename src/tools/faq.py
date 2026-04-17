@@ -49,6 +49,7 @@ tool_faq = FastMCP(name="faq")
 async def faq(
     query: str,
     channel_id: str,
+    _request_id: str = "",
 ) -> Payload[list[dict[str, Any]]]:
     """
     Поиск ответа на часто задаваемые организационные вопросы клиентов.

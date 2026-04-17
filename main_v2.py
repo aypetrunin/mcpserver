@@ -214,7 +214,7 @@ async def main() -> None:
     from src.server.server_registry import SERVERS
 
     settings = get_settings()
-    logger.info("Runtime ENV=%s LOG_LEVEL=%s", settings.ENV, settings.LOG_LEVEL)
+    logger.info("app.started", env=settings.ENV, log_level=settings.LOG_LEVEL)
 
     loop = asyncio.get_running_loop()
 
